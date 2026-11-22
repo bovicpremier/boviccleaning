@@ -57,22 +57,27 @@
 :root {
   --cleanon-font: "Poppins", sans-serif;
   --cleanon-font-two: "Rubik", sans-serif;
-  --cleanon-gray: #595752;
-  --cleanon-gray-rgb: 89, 87, 82;
-  --cleanon-base: #f1ab21;
-  --cleanon-base-rgb: 241, 171, 33;
-  --cleanon-black: #0c342f;
-  --cleanon-black-rgb: 12, 52, 47;
-  --cleanon-extra: #0a7158;
-  --cleanon-extra-rgb: 10, 113, 88;
-  --cleanon-primary: #f7f4f1;
-  --cleanon-primary-rgb: 247, 244, 241;
-  --cleanon-secondary: #0e3026;
-  --cleanon-secondary-rgb: 14, 48, 38;
+  --cleanon-gray: #625a68;
+  --bovic-sky: #a9cdee;
+  --bovic-baby: #f6cfdd;
+  --bovic-rose: #c98a9a;
+  --bovic-cream: #fbf4ec;
+  --bovic-peach: #e8b4a4;
+  --cleanon-gray-rgb: 98, 90, 104;
+  --cleanon-base: #d92f78;
+  --cleanon-base-rgb: 217, 47, 120;
+  --cleanon-black: #172a54;
+  --cleanon-black-rgb: 23, 42, 84;
+  --cleanon-extra: #a5576f;
+  --cleanon-extra-rgb: 165, 87, 111;
+  --cleanon-primary: #fbf4ec;
+  --cleanon-primary-rgb: 251, 244, 236;
+  --cleanon-secondary: #22386a;
+  --cleanon-secondary-rgb: 34, 56, 106;
   --cleanon-white: #ffffff;
   --cleanon-white-rgb: 255, 255, 255;
-  --cleanon-bdr-color: #ded8cf;
-  --cleanon-bdr-color-rgb: 222, 216, 207;
+  --cleanon-bdr-color: #efd9dc;
+  --cleanon-bdr-color-rgb: 239, 217, 220;
   --cleanon-bdr-radius: 10px;
 }
 
@@ -5776,8 +5781,8 @@ html.lenis body {
   left: 0;
   right: 0;
   bottom: 0;
-  background: #10362f;
-  background: linear-gradient(270deg, rgba(16, 54, 47, 0) 0%, rgba(16, 54, 47, 0.8) 50%, rgba(16, 54, 47, 1) 100%);
+  background: #1b2f5e;
+  background: linear-gradient(270deg, rgba(23, 42, 84, 0) 0%, rgba(23, 42, 84, 0.8) 50%, rgba(23, 42, 84, 1) 100%);
   z-index: -1;
 }
 
@@ -9683,7 +9688,7 @@ div[class^="bubble-"] {
   height: 210px;
   border: 5px solid var(--cleanon-white);
   transform: translateX(-50%);
-  background: linear-gradient(0deg, rgba(248, 245, 241, 0) 0%, rgba(11, 112, 88, 1) 100%);
+  background: linear-gradient(0deg, rgba(248, 245, 241, 0) 0%, rgba(165, 87, 111, 1) 100%);
   border-radius: 50%;
   box-shadow: rgba(0, 0, 0, 0.1) 0px 0px 48.51px 0.49px;
   z-index: -1;
@@ -9900,8 +9905,8 @@ Cost Calculator
   left: 0;
   bottom: 0;
   right: 0;
-  background: rgb(14, 48, 38);
-  background: linear-gradient(90deg, rgba(14, 48, 38, 0) 0%, rgba(14, 48, 38, 0) 13%, rgba(14, 48, 38, 0.2553396358543417) 22%, rgba(14, 48, 38, 0.8743872549019608) 45%, rgba(14, 48, 38, 1) 74%, rgba(14, 48, 38, 1) 100%);
+  background: rgb(34, 56, 106);
+  background: linear-gradient(90deg, rgba(34, 56, 106, 0) 0%, rgba(34, 56, 106, 0) 13%, rgba(34, 56, 106, 0.2553396358543417) 22%, rgba(34, 56, 106, 0.8743872549019608) 45%, rgba(34, 56, 106, 1) 74%, rgba(34, 56, 106, 1) 100%);
   content: "";
   z-index: -1;
 }
@@ -12051,7 +12056,7 @@ Cost Calculator
   margin-right: -90px;
   padding: 41px 90px 50px;
   clip-path: circle(76.6% at 33% 45%);
-  background: linear-gradient(270deg, #0b7058 0%, #0b7058 100%);
+  background: linear-gradient(270deg, #a5576f 0%, #a5576f 100%);
   z-index: 1;
 }
 
@@ -12116,7 +12121,7 @@ Cost Calculator
   flex-direction: column;
   border-radius: 50%;
   margin: 0 auto;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.69) 0%, #0b7058 100%);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.69) 0%, #a5576f 100%);
 }
 
 .services-three__tab-doller {
@@ -12279,9 +12284,9 @@ Cost Calculator
 .award-one__award-content {
   position: relative;
   display: block;
-  background-image: -moz-linear-gradient(90deg, rgb(11, 112, 88) 0%, rgb(12, 77, 69) 100%);
-  background-image: -webkit-linear-gradient(90deg, rgb(11, 112, 88) 0%, rgb(12, 77, 69) 100%);
-  background-image: -ms-linear-gradient(90deg, rgb(11, 112, 88) 0%, rgb(12, 77, 69) 100%);
+  background-image: -moz-linear-gradient(90deg, rgb(165, 87, 111) 0%, rgb(34, 56, 106) 100%);
+  background-image: -webkit-linear-gradient(90deg, rgb(165, 87, 111) 0%, rgb(34, 56, 106) 100%);
+  background-image: -ms-linear-gradient(90deg, rgb(165, 87, 111) 0%, rgb(34, 56, 106) 100%);
   padding: 64px 50px 20px;
   margin-top: 30px;
   margin-right: 1px;
@@ -15838,7 +15843,7 @@ Project Two
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(90deg, rgba(16, 54, 47, 0.976) 0%, rgba(16, 54, 47, 0.85) 50%, rgba(16, 54, 47, 0) 80%);
+  background: linear-gradient(90deg, rgba(23, 42, 84, 0.976) 0%, rgba(23, 42, 84, 0.85) 50%, rgba(23, 42, 84, 0) 80%);
   background-repeat: no-repeat;
   background-size: cover;
   background-position: center;
@@ -15946,7 +15951,7 @@ Project Two
   left: 0;
   right: 0;
   height: 50px;
-  background: linear-gradient(0deg, rgba(248, 245, 241, 1) 0%, rgba(253, 187, 45, 0) 100%);
+  background: linear-gradient(0deg, rgba(248, 245, 241, 1) 0%, rgba(217, 47, 120, 0) 100%);
 }
 
 .why-choose-two__single-img img {
@@ -19103,7 +19108,7 @@ Brand One
   align-items: center;
   flex-wrap: wrap;
   gap: 12px;
-  background: linear-gradient(90deg, rgba(11, 112, 88, 0.69) 0%, #0e3026 100%);
+  background: linear-gradient(90deg, rgba(165, 87, 111, 0.69) 0%, #22386a 100%);
   border-radius: 4px;
   padding: 12px 25px 12px;
   margin-top: 39px;
@@ -21311,7 +21316,7 @@ Brand One
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(90deg, rgba(16, 54, 47, 0.976) 0%, rgba(16, 54, 47, 0.85) 60%, rgba(16, 54, 47, 0) 80%);
+  background: linear-gradient(90deg, rgba(23, 42, 84, 0.976) 0%, rgba(23, 42, 84, 0.85) 60%, rgba(23, 42, 84, 0) 80%);
 }
 
 .page-header__inner {
@@ -21387,7 +21392,7 @@ Brand One
 # Main Header Six
 --------------------------------------------------------------*/
 .main-header-six .main-menu-two__wrapper-inner {
-  background: linear-gradient(90deg, rgba(11, 112, 88, 0.50) 0%, #0e3026 100%);
+  background: linear-gradient(90deg, rgba(165, 87, 111, 0.50) 0%, #22386a 100%);
 }
 
 /*--------------------------------------------------------------
@@ -29441,8 +29446,8 @@ Privacy Policy Page
   position: absolute;
   top: 0;
   right: 0;
-  background-color: #d1fae5;
-  color: #065f46;
+  background-color: #fde4ee;
+  color: #a5576f;
   font-size: 14px;
   font-weight: 600;
   line-height: 14px;
@@ -29856,8 +29861,8 @@ Privacy Policy Page
 .dashboard__my-wishlist-status {
   position: relative;
   display: block;
-  background-color: #d1fae5;
-  color: #065f46;
+  background-color: #fde4ee;
+  color: #a5576f;
   font-size: 12px;
   font-weight: 500;
   line-height: 12px;
@@ -30111,7 +30116,7 @@ Privacy Policy Page
   right: 0;
   height: 12px;
   width: 12px;
-  background: #07b89d;
+  background: #c98aa0;
   border-radius: 50%;
   border: 2px solid var(--cleanon-white);
 }
@@ -30121,7 +30126,7 @@ Privacy Policy Page
 }
 
 .chat__item-avator-online.busy {
-  background: #f0b002;
+  background: #d92f78;
 }
 
 .chat__item-avator img {
@@ -30198,8 +30203,8 @@ Privacy Policy Page
 .chat__window-header-content p {
   position: relative;
   display: block;
-  background-color: #d1fae5;
-  color: #065f46;
+  background-color: #fde4ee;
+  color: #a5576f;
   font-size: 12px;
   font-weight: 500;
   line-height: 12px;
@@ -30751,3 +30756,16 @@ Privacy Policy Page
 /*--------------------------------------------------------------
 # End All Css
 --------------------------------------------------------------*/
+/* ---- Bovic brand logo (2026-11 palette refresh) ---- */
+img[src*="bovic-logo"] {
+  height: auto !important;
+  max-height: 66px;
+  width: auto !important;
+  max-width: 190px;
+  background: linear-gradient(135deg, #ffffff 0%, var(--bovic-cream) 100%);
+  border-radius: 14px;
+  padding: 5px 12px;
+  box-shadow: 0 4px 14px rgba(23, 42, 84, .18);
+  object-fit: contain;
+}
+.mobile-nav__content img[src*="bovic-logo"] { max-width: 170px; }

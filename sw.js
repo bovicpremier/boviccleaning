@@ -2,14 +2,14 @@
 // Pages: always fetched fresh from the network, with the last copy used only when offline.
 // Scripts & styles under /assets/: network first. Images & fonts: from cache, refreshed in the background.
 // Never touches /api/ (bookings, payments, prices) or the admin portal.
-const VERSION = 'bovic-v1';
+const VERSION = 'bovic-v2';
 const PAGE_CACHE = VERSION + '-pages';
 const ASSET_CACHE = VERSION + '-assets';
 const PRECACHE = ['/index.html', '/book.html', '/pricing.html', '/contact.html'];
 
 const OFFLINE_HTML = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>You're offline</title><style>body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:#0c342f;color:#fff;display:flex;min-height:100vh;align-items:center;justify-content:center;text-align:center;padding:16px}
-a{display:inline-block;margin-top:14px;background:#f1ab21;color:#0c342f;padding:12px 24px;border-radius:999px;font-weight:700;text-decoration:none}</style></head>
+<title>You're offline</title><style>body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:#172a54;color:#fff;display:flex;min-height:100vh;align-items:center;justify-content:center;text-align:center;padding:16px}
+a{display:inline-block;margin-top:14px;background:#d92f78;color:#fff;padding:12px 24px;border-radius:999px;font-weight:700;text-decoration:none}</style></head>
 <body><div><h2>You're offline</h2><p>Connect to the internet to book or see prices.<br>Need us now? Call us.</p><a href="tel:+16787994634">Call 678-799-4634</a></div></body></html>`;
 
 self.addEventListener('install', event => {

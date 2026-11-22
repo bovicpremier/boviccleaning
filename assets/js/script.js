@@ -1180,19 +1180,32 @@
         else if ($submitBtn.is("input")) $submitBtn.data("original-val", originalBtnText).val(loadingText);
         $result.removeClass("success error").text("");
 
+        // Static hosting (GitHub Pages) has no backend, so messages are delivered
+        // to the business inbox through FormSubmit's AJAX endpoint.
+        var isNewsletter = !$form.find('[name="message"], textarea').length && !$form.find('[name="name"]').length;
+        var payload = $form.serialize() +
+          "&_subject=" + encodeURIComponent(isNewsletter ? "New newsletter subscriber - boviccleaning.com" : "New website inquiry - boviccleaning.com") +
+          "&_template=table&_captcha=false&_honey=" +
+          "&page=" + encodeURIComponent(location.pathname);
         $.ajax({
-          url: $form.attr("action"),
+          url: "https://formsubmit.co/ajax/info@boviccleaning.com",
           type: "POST",
-          data: $form.serialize(),
+          data: payload,
+          dataType: "json",
+          headers: { Accept: "application/json" },
           success: function (response) {
-            $result.text(response).addClass("success");
-            $form.find('input[type="text"], input[type="email"], input[type="tel"], textarea').val("");
+            if (response && (response.success === true || response.success === "true")) {
+              $result.text(isNewsletter
+                ? "Thank you for subscribing to Bovic Premier Cleaning Pros updates!"
+                : "Thank you! We received your message and will get back to you shortly.").addClass("success");
+              $form.find('input[type="text"], input[type="email"], input[type="tel"], textarea').val("");
+            } else {
+              $result.text("Sorry, your message could not be sent right now. Please call or text 678-799-4634 or email info@boviccleaning.com.").addClass("error");
+            }
           },
           error: function (xhr) {
-            var msg = "An error occurred. Please try again later.";
-            if (xhr.responseText && xhr.responseText.trim().length > 0) {
-              msg = xhr.responseText.trim();
-            } else if (xhr.status === 0) {
+            var msg = "Sorry, your message could not be sent. Please call or text 678-799-4634 or email info@boviccleaning.com.";
+            if (xhr.status === 0) {
               msg = "Network error. Please check your connection.";
             } else if (xhr.status >= 500) {
               msg = "Server error. Please try again later.";

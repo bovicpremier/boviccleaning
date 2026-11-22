@@ -260,7 +260,7 @@ const DEFAULT_SITE = {
     tagline: 'About Us',
     title: 'Focused by Care, Crafted for Perfection',
     text: 'At Bovic Premier Cleaning Pros LLC we believe a clean space is the first step to a clear mind. From tough stains to everyday dust, our trained North Atlanta team combines efficiency, safety, and eco-friendliness so you enjoy a fresh, healthy environment.',
-    experience_years: '10',
+    experience_years: '4',
     active_staff: '25',
   },
   policies: {

@@ -7,7 +7,7 @@
       num: '01',
       badge: 'Google Search & Ads',
       title: '1. Find Bovic on Google',
-      desc: 'North Atlanta homeowners discover Bovic Premier through local SEO, Google Maps, and tracked Google Ads campaigns with live schema pricing.',
+      desc: 'Find Bovic Premier on Google or Google Maps and see our prices upfront on our website.',
       camAzimuth: -0.95,
       camPolar: 1.02,
       camDist: 14.5,
@@ -16,47 +16,47 @@
     },
     {
       num: '02',
-      badge: 'Live Calendar',
+      badge: 'Cal.com Calendar',
       title: '2. Pick Date & Time Slot',
-      desc: 'Our live calendar prevents double-booking across Buckhead, Sandy Springs, Roswell, and Alpharetta and reserves your exact arrival window.',
+      desc: 'Choose your service and pick any open date and time on our live Cal.com calendar. Your slot is reserved instantly.',
       camAzimuth: -0.2,
       camPolar: 0.98,
       camDist: 14.2,
       focus: [-1.4, 1.6, 2.8],
-      accent: 0x0a7158,
+      accent: 0x5b8fc7,
     },
     {
       num: '03',
-      badge: 'Stripe & PayPal',
-      title: '3. Promo & Secure Checkout',
-      desc: 'Apply seasonal Black November or Holiday promo codes and check out via Stripe, PayPal, or Pay Later while firing verified conversion events.',
+      badge: 'Price Confirmed',
+      title: '3. We Confirm Your Price',
+      desc: 'We confirm your exact price before cleaning day, based on your home size and the service you chose. No surprise charges.',
       camAzimuth: 0.72,
       camPolar: 1.0,
       camDist: 14.2,
       focus: [2.2, 1.6, 2.6],
-      accent: 0xf1ab21,
+      accent: 0xd92f78,
     },
     {
       num: '04',
       badge: 'Pro Dispatch',
       title: '4. Reminders & Pro Arrival',
-      desc: 'Automatic confirmation emails plus 24-hour and 2-hour alerts go out as our Admin Portal assigns an area-matched cleaner directly to your home.',
+      desc: 'You get an email confirmation right away and a reminder before your appointment. Your cleaner arrives in your chosen time window.',
       camAzimuth: 1.35,
       camPolar: 1.04,
       camDist: 14.6,
       focus: [1.6, 0.8, 3.2],
-      accent: 0x34d399,
+      accent: 0xa9cdee,
     },
     {
       num: '05',
       badge: '48h Guarantee',
       title: '5. Spotless Clean & QA Glow',
-      desc: 'Eco-safe deep cleaning transforms kitchens, baths, and living areas—verified with room checklists and our 48-hour satisfaction guarantee.',
+      desc: 'Eco-safe cleaning for kitchens, baths and living areas, checked against our room-by-room checklist and backed by a free 48-hour re-clean.',
       camAzimuth: 0.35,
       camPolar: 0.96,
       camDist: 13.8,
       focus: [0, 1.4, 0],
-      accent: 0xf1ab21,
+      accent: 0xd92f78,
     },
   ];
 
@@ -182,7 +182,7 @@
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
   } catch {
     const fallback = document.createElement('div');
-    fallback.style.cssText = 'color:#cfe3dd;padding:48px 24px;text-align:center;';
+    fallback.style.cssText = 'color:#f6cfdd;padding:48px 24px;text-align:center;';
     fallback.textContent = 'Interactive 3D view requires WebGL support. Use the workflow steps on the right to explore our 5-step Google-to-Clean process.';
     stage.appendChild(fallback);
     return;
@@ -197,7 +197,7 @@
   stage.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x071f1c, 0.022);
+  scene.fog = new THREE.FogExp2(0x0f1a38, 0.022);
 
   const camera = new THREE.PerspectiveCamera(42, stage.clientWidth / Math.max(1, stage.clientHeight), 0.1, 100);
 
@@ -212,7 +212,7 @@
   window.addEventListener('resize', handleResize);
 
   // Lighting
-  const hemi = new THREE.HemisphereLight(0xdff5ee, 0x0b241f, 0.85);
+  const hemi = new THREE.HemisphereLight(0xfdeef3, 0x121f40, 0.85);
   scene.add(hemi);
 
   const sun = new THREE.DirectionalLight(0xfff5e0, 1.45);
@@ -227,26 +227,26 @@
   sun.shadow.camera.bottom = -9;
   scene.add(sun);
 
-  const rim = new THREE.DirectionalLight(0x38d9a9, 0.65);
+  const rim = new THREE.DirectionalLight(0xf6cfdd, 0.65);
   rim.position.set(-9, 6, -7);
   scene.add(rim);
 
-  const warmHouseLight = new THREE.PointLight(0xf1ab21, 1.3, 10);
+  const warmHouseLight = new THREE.PointLight(0xd92f78, 1.3, 10);
   warmHouseLight.position.set(0, 2.3, 0.4);
   scene.add(warmHouseLight);
 
   // Materials
-  const matEmerald = new THREE.MeshStandardMaterial({ color: 0x0a7158, roughness: 0.45, metalness: 0.12 });
-  const matDarkPine = new THREE.MeshStandardMaterial({ color: 0x0c342f, roughness: 0.55, metalness: 0.18 });
-  const matGold = new THREE.MeshStandardMaterial({ color: 0xf1ab21, roughness: 0.28, metalness: 0.62, emissive: 0x3b2400 });
+  const matEmerald = new THREE.MeshStandardMaterial({ color: 0x5b8fc7, roughness: 0.45, metalness: 0.12 });
+  const matDarkPine = new THREE.MeshStandardMaterial({ color: 0x172a54, roughness: 0.55, metalness: 0.18 });
+  const matGold = new THREE.MeshStandardMaterial({ color: 0xd92f78, roughness: 0.28, metalness: 0.62, emissive: 0x3b0a20 });
   const matCream = new THREE.MeshStandardMaterial({ color: 0xf4efe8, roughness: 0.68, metalness: 0.04 });
-  const matRoof = new THREE.MeshStandardMaterial({ color: 0x1a2625, roughness: 0.52, metalness: 0.25 });
+  const matRoof = new THREE.MeshStandardMaterial({ color: 0x22386a, roughness: 0.52, metalness: 0.25 });
   const matFloorWood = new THREE.MeshStandardMaterial({ color: 0xc8a378, roughness: 0.55 });
-  const matGlass = new THREE.MeshStandardMaterial({ color: 0x99f6e4, roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.65, emissive: 0x0e4f42 });
+  const matGlass = new THREE.MeshStandardMaterial({ color: 0xbfdcf5, roughness: 0.1, metalness: 0.1, transparent: true, opacity: 0.65, emissive: 0x2a4478 });
   const matGoogleBlue = new THREE.MeshStandardMaterial({ color: 0x4285f4, roughness: 0.25, metalness: 0.35, emissive: 0x0e2a5c });
   const matGoogleRed = new THREE.MeshStandardMaterial({ color: 0xea4335, roughness: 0.25, metalness: 0.35, emissive: 0x4a0f0a });
   const matGoogleGreen = new THREE.MeshStandardMaterial({ color: 0x34a853, roughness: 0.25, metalness: 0.35, emissive: 0x0c3b1a });
-  const matSlate = new THREE.MeshStandardMaterial({ color: 0x243330, roughness: 0.72 });
+  const matSlate = new THREE.MeshStandardMaterial({ color: 0x2b3550, roughness: 0.72 });
 
   const world = new THREE.Group();
   scene.add(world);
@@ -257,7 +257,7 @@
   island.receiveShadow = true;
   world.add(island);
 
-  const lawn = new THREE.Mesh(new THREE.CylinderGeometry(6.15, 6.2, 0.12, 64), new THREE.MeshStandardMaterial({ color: 0x115241, roughness: 0.85 }));
+  const lawn = new THREE.Mesh(new THREE.CylinderGeometry(6.15, 6.2, 0.12, 64), new THREE.MeshStandardMaterial({ color: 0xe8c4cf, roughness: 0.85 }));
   lawn.position.y = 0.04;
   lawn.receiveShadow = true;
   world.add(lawn);
@@ -333,12 +333,12 @@
   rug.position.set(-1.1, 0.36, -0.35);
   house.add(rug);
 
-  const sofaBase = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.36, 0.68), new THREE.MeshStandardMaterial({ color: 0x0f5143, roughness: 0.7 }));
+  const sofaBase = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.36, 0.68), new THREE.MeshStandardMaterial({ color: 0xc98a9a, roughness: 0.7 }));
   sofaBase.position.set(-1.1, 0.56, -1.25);
   sofaBase.castShadow = true;
   house.add(sofaBase);
 
-  const sofaBack = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.45, 0.18), new THREE.MeshStandardMaterial({ color: 0x0f5143, roughness: 0.7 }));
+  const sofaBack = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.45, 0.18), new THREE.MeshStandardMaterial({ color: 0xc98a9a, roughness: 0.7 }));
   sofaBack.position.set(-1.1, 0.85, -1.52);
   house.add(sofaBack);
 
@@ -484,8 +484,8 @@
   ]);
   const flowTubeGeo = new THREE.TubeGeometry(flowCurve, 80, 0.045, 8, false);
   const flowTubeMat = new THREE.MeshStandardMaterial({
-    color: 0x10b981,
-    emissive: 0x0a7158,
+    color: 0xd92f78,
+    emissive: 0x5b8fc7,
     roughness: 0.25,
     transparent: true,
     opacity: 0.75,
@@ -605,7 +605,7 @@
     const highlightedTile = Math.floor(t * 2.2) % calTiles.length;
     calTiles.forEach((tile, i) => {
       const hit = i === highlightedTile;
-      tile.material.color.setHex(hit ? 0xf1ab21 : (activeIdx === 1 ? 0x0a7158 : 0x0c342f));
+      tile.material.color.setHex(hit ? 0xd92f78 : (activeIdx === 1 ? 0x5b8fc7 : 0x172a54));
       tile.position.z = hit ? 0.12 : 0.08;
     });
     calNode.position.y = 1.25 + Math.sin(t * 1.8 + 1) * 0.09;

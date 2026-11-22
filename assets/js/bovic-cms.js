@@ -26,7 +26,7 @@
       .bovic-xmas-hat { position: absolute; left: -8px; top: -17px; width: 34px; height: 30px; pointer-events: none; transform-origin: 70% 90%; animation: bovicHatSwing 2.8s ease-in-out infinite; z-index: 2; }
       .bovic-xmas-hat .pom { transform-origin: 6px 5px; animation: bovicPompom 1.4s ease-in-out infinite; }
       .bovic-xmas-spark { position: absolute; width: 10px; height: 10px; pointer-events: none; animation: bovicSparkle 2.2s ease-in-out infinite; z-index: 2; }
-      .bovic-xmas-spark::before, .bovic-xmas-spark::after { content: ''; position: absolute; left: 4px; top: 0; width: 2px; height: 10px; background: #fff6d5; border-radius: 2px; box-shadow: 0 0 6px #f1ab21; }
+      .bovic-xmas-spark::before, .bovic-xmas-spark::after { content: ''; position: absolute; left: 4px; top: 0; width: 2px; height: 10px; background: #fff6d5; border-radius: 2px; box-shadow: 0 0 6px #d92f78; }
       .bovic-xmas-spark::after { transform: rotate(90deg); }
       #bovic-xmas-snow { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9990; }
       @media (prefers-reduced-motion: reduce) {
@@ -37,7 +37,7 @@
     document.head.appendChild(css);
 
     // 1. String of twinkling lights along the top of the site header(s)
-    const BULB_COLORS = ['#e53935', '#f1ab21', '#2e7d32', '#1e88e5', '#ffffff'];
+    const BULB_COLORS = ['#e53935', '#d92f78', '#2e7d32', '#1e88e5', '#ffffff'];
     const addLights = (host) => {
       if (!host || host.querySelector(':scope > .bovic-xmas-lights')) return;
       if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
@@ -105,7 +105,7 @@
       svg.append(body, shade, brim, pomG);
       return svg;
     };
-    document.querySelectorAll('img[src*="assets/images/resources/logo-"]').forEach(img => {
+    document.querySelectorAll('img[src*="assets/images/resources/bovic-logo"]').forEach(img => {
       if (img.closest('footer, .site-footer, .site-footer-two, .site-footer-three, .site-footer-four, [class*="site-footer"]')) return;
       const holder = img.parentElement;
       if (!holder || holder.querySelector(':scope > .bovic-xmas-hat')) return;
@@ -189,9 +189,9 @@
       .bovic-call-btn{display:none}
       @media (max-width:1199px){
         .bovic-call-btn{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;
-          background:#f1ab21;color:#0c342f!important;font-size:17px;margin-right:14px;vertical-align:middle;flex:0 0 auto;
+          background:#d92f78;color:#172a54!important;font-size:17px;margin-right:14px;vertical-align:middle;flex:0 0 auto;
           box-shadow:0 4px 12px rgba(0,0,0,.18);animation:bovicRing 4s ease-in-out 2s infinite}
-        .bovic-call-btn:hover{color:#0c342f}
+        .bovic-call-btn:hover{color:#172a54}
       }
       @keyframes bovicRing{0%,86%,100%{transform:rotate(0)}88%{transform:rotate(-14deg)}90%{transform:rotate(14deg)}92%{transform:rotate(-10deg)}94%{transform:rotate(8deg)}}
       @media (prefers-reduced-motion:reduce){.bovic-call-btn{animation:none}}`;
@@ -227,14 +227,14 @@
     const css = document.createElement('style');
     css.textContent = `
       #bovic-app-banner{position:fixed;left:12px;right:12px;bottom:12px;z-index:100000;max-width:440px;margin:0 auto;
-        background:#0c342f;color:#fff;border-radius:16px;box-shadow:0 12px 34px rgba(0,0,0,.35);padding:14px 14px 14px 12px;
+        background:#172a54;color:#fff;border-radius:16px;box-shadow:0 12px 34px rgba(0,0,0,.35);padding:14px 14px 14px 12px;
         display:flex;gap:12px;align-items:center;font-family:inherit;transform:translateY(140%);transition:transform .45s ease}
       #bovic-app-banner.show{transform:none}
       #bovic-app-banner img{width:46px;height:46px;border-radius:12px;background:#fff;flex:0 0 auto}
       #bovic-app-banner .t{flex:1;min-width:0;font-size:13.5px;line-height:1.35}
-      #bovic-app-banner .t strong{display:block;font-size:15px;color:#f1ab21;margin-bottom:2px}
-      #bovic-app-banner .go{background:#f1ab21;color:#0c342f;border:0;border-radius:999px;padding:9px 16px;font-weight:700;font-size:14px;cursor:pointer;flex:0 0 auto}
-      #bovic-app-banner .x{background:none;border:0;color:#cfe3dd;font-size:22px;line-height:1;padding:4px 6px;cursor:pointer;flex:0 0 auto}
+      #bovic-app-banner .t strong{display:block;font-size:15px;color:#d92f78;margin-bottom:2px}
+      #bovic-app-banner .go{background:#d92f78;color:#172a54;border:0;border-radius:999px;padding:9px 16px;font-weight:700;font-size:14px;cursor:pointer;flex:0 0 auto}
+      #bovic-app-banner .x{background:none;border:0;color:#f6cfdd;font-size:22px;line-height:1;padding:4px 6px;cursor:pointer;flex:0 0 auto}
       #bovic-app-banner .ios{display:none;font-size:13px;margin-top:6px;color:#e8f1ee}
       #bovic-app-banner.ios-help .ios{display:block}
       #bovic-app-banner.ios-help .go{display:none}
@@ -318,7 +318,7 @@
   function buildStaticFallback() {
     const m = new Date().getMonth() + 1;
     let activePromo = null;
-    if (m === 11) {
+    if (false && m === 11) {
       activePromo = {
         key: 'black_november',
         theme: 'black_november',
@@ -331,7 +331,7 @@
         cta_text: 'Claim 20% Off',
         end_date: '2026-11-30',
       };
-    } else if (m === 12) {
+    } else if (false && m === 12) {
       activePromo = {
         key: 'christmas_december',
         theme: 'christmas',
@@ -371,7 +371,7 @@
 
       // 1. Update logos with cache-busting version
       if (s.logo_version) {
-        document.querySelectorAll('img[src*="assets/images/resources/logo-"]').forEach(img => {
+        document.querySelectorAll('img[src*="assets/images/resources/bovic-logo"]').forEach(img => {
           const base = img.getAttribute('src').split('?')[0];
           img.setAttribute('src', `${base}?v=${s.logo_version}`);
         });
@@ -623,16 +623,16 @@
           const bar = document.createElement('div');
           bar.id = 'bovic-promo-bar';
           bar.style.cssText = isXmas
-            ? 'background:linear-gradient(90deg,#0c342f 0%,#7a1622 50%,#0c342f 100%);color:#fff;padding:10px 14px;border-bottom:2px solid #f1ab21;font-family:Poppins,sans-serif;font-size:13px;position:relative;z-index:9998;'
-            : 'background:linear-gradient(90deg,#0b0d10 0%,#181c20 55%,#0c342f 100%);color:#fff;padding:10px 14px;border-bottom:2px solid #f1ab21;font-family:Poppins,sans-serif;font-size:13px;position:relative;z-index:9998;';
+            ? 'background:linear-gradient(90deg,#172a54 0%,#7a1622 50%,#172a54 100%);color:#fff;padding:10px 14px;border-bottom:2px solid #d92f78;font-family:Poppins,sans-serif;font-size:13px;position:relative;z-index:9998;'
+            : 'background:linear-gradient(90deg,#0b0d10 0%,#181c20 55%,#172a54 100%);color:#fff;padding:10px 14px;border-bottom:2px solid #d92f78;font-family:Poppins,sans-serif;font-size:13px;position:relative;z-index:9998;';
 
           const inner = document.createElement('div');
           inner.style.cssText = 'max-width:1280px;margin:0 auto;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:10px;padding-right:28px;';
 
           const badge = document.createElement('span');
           badge.style.cssText = isXmas
-            ? 'background:#f1ab21;color:#0c342f;font-weight:700;padding:2px 10px;border-radius:999px;font-size:11px;letter-spacing:.04em;'
-            : 'background:#f1ab21;color:#0b0d10;font-weight:700;padding:2px 10px;border-radius:999px;font-size:11px;letter-spacing:.04em;';
+            ? 'background:#d92f78;color:#172a54;font-weight:700;padding:2px 10px;border-radius:999px;font-size:11px;letter-spacing:.04em;'
+            : 'background:#d92f78;color:#0b0d10;font-weight:700;padding:2px 10px;border-radius:999px;font-size:11px;letter-spacing:.04em;';
           badge.textContent = promo.badge || 'SPECIAL OFFER';
 
           const msg = document.createElement('span');
@@ -642,7 +642,7 @@
           const cta = document.createElement('a');
           cta.href = promo.promo_code ? `book.html?promo=${encodeURIComponent(promo.promo_code)}` : 'book.html';
           cta.textContent = promo.cta_text || 'Book Now';
-          cta.style.cssText = 'background:#f1ab21;color:#0b0d10;font-weight:700;padding:4px 12px;border-radius:999px;text-decoration:none;font-size:12px;white-space:nowrap;';
+          cta.style.cssText = 'background:#d92f78;color:#0b0d10;font-weight:700;padding:4px 12px;border-radius:999px;text-decoration:none;font-size:12px;white-space:nowrap;';
 
           const closeBtn = document.createElement('button');
           closeBtn.type = 'button';
@@ -669,8 +669,8 @@
             st.id = 'bovic-promo-css';
             st.textContent = `
               @keyframes bovicBlackGlow {
-                0%,100% { box-shadow: 0 8px 24px rgba(0,0,0,.45), 0 0 0 0 rgba(241,171,33,.55); }
-                60% { box-shadow: 0 10px 28px rgba(0,0,0,.5), 0 0 0 8px rgba(241,171,33,0); }
+                0%,100% { box-shadow: 0 8px 24px rgba(0,0,0,.45), 0 0 0 0 rgba(217,47,120,.55); }
+                60% { box-shadow: 0 10px 28px rgba(0,0,0,.5), 0 0 0 8px rgba(217,47,120,0); }
               }
               #bovic-promo-fab { animation: bovicBlackGlow 2.6s infinite; transition: transform .18s ease; }
               #bovic-promo-fab:hover { transform: translateY(-2px) scale(1.02); }
@@ -696,7 +696,7 @@
             svg.setAttribute('width', '20');
             svg.setAttribute('height', '20');
             svg.setAttribute('fill', 'none');
-            svg.setAttribute('stroke', '#f1ab21');
+            svg.setAttribute('stroke', '#d92f78');
             svg.setAttribute('stroke-width', '2');
             svg.setAttribute('stroke-linecap', 'round');
             svg.setAttribute('stroke-linejoin', 'round');
@@ -712,7 +712,7 @@
               dot.setAttribute('cx', '7');
               dot.setAttribute('cy', '7');
               dot.setAttribute('r', '1.6');
-              dot.setAttribute('fill', '#f1ab21');
+              dot.setAttribute('fill', '#d92f78');
               svg.appendChild(dot);
             }
             svg.appendChild(p);
@@ -733,22 +733,22 @@
             'gap:9px',
             'padding:9px 14px 9px 10px',
             'border-radius:999px',
-            'border:2px solid #f1ab21',
-            isXmas ? 'background:linear-gradient(135deg,#0c342f 0%,#6e1420 100%)' : 'background:linear-gradient(135deg,#090a0c 0%,#1d2126 100%)',
+            'border:2px solid #d92f78',
+            isXmas ? 'background:linear-gradient(135deg,#172a54 0%,#6e1420 100%)' : 'background:linear-gradient(135deg,#090a0c 0%,#1d2126 100%)',
             'color:#ffffff',
             'cursor:pointer',
             'font-family:Poppins,sans-serif',
           ].join(';');
 
           const iconCircle = document.createElement('span');
-          iconCircle.style.cssText = 'width:32px;height:32px;border-radius:50%;background:#000;border:1px solid rgba(241,171,33,.5);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;';
+          iconCircle.style.cssText = 'width:32px;height:32px;border-radius:50%;background:#000;border:1px solid rgba(217,47,120,.5);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;';
           iconCircle.appendChild(makeIconSvg());
 
           const textWrap = document.createElement('span');
           textWrap.className = 'bovic-fab-text';
           textWrap.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;line-height:1.15;text-align:left;';
           const topLbl = document.createElement('span');
-          topLbl.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:.06em;color:#f1ab21;text-transform:uppercase;';
+          topLbl.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:.06em;color:#d92f78;text-transform:uppercase;';
           topLbl.textContent = isXmas ? 'Holiday Deal' : 'Black Nov';
           const botLbl = document.createElement('span');
           botLbl.style.cssText = 'font-size:12px;font-weight:700;color:#ffffff;';
@@ -774,7 +774,7 @@
             'z-index:9997',
             'border-radius:16px',
             'overflow:hidden',
-            'border:1px solid #f1ab21',
+            'border:1px solid #d92f78',
             'box-shadow:0 20px 50px rgba(0,0,0,.45)',
             'background:#111418',
             'color:#ffffff',
@@ -788,15 +788,15 @@
             'align-items:center',
             'justify-content:space-between',
             'gap:8px',
-            isXmas ? 'background:linear-gradient(135deg,#0c342f,#7a1622)' : 'background:linear-gradient(135deg,#050607,#1b2024)',
-            'border-bottom:1px solid rgba(241,171,33,.35)',
+            isXmas ? 'background:linear-gradient(135deg,#172a54,#7a1622)' : 'background:linear-gradient(135deg,#050607,#1b2024)',
+            'border-bottom:1px solid rgba(217,47,120,.35)',
           ].join(';');
 
           const popHeadLeft = document.createElement('div');
           popHeadLeft.style.cssText = 'display:flex;align-items:center;gap:8px;';
           popHeadLeft.appendChild(makeIconSvg());
           const popBadge = document.createElement('span');
-          popBadge.style.cssText = 'font-weight:700;font-size:12px;letter-spacing:.05em;color:#f1ab21;text-transform:uppercase;';
+          popBadge.style.cssText = 'font-weight:700;font-size:12px;letter-spacing:.05em;color:#d92f78;text-transform:uppercase;';
           popBadge.textContent = promo.badge || 'LIMITED OFFER';
           popHeadLeft.appendChild(popBadge);
 
@@ -818,7 +818,7 @@
             const daysLeft = Math.ceil((endTs - Date.now()) / 86400000);
             if (daysLeft >= 0) {
               const expPill = document.createElement('div');
-              expPill.style.cssText = 'display:inline-block;background:rgba(241,171,33,.14);color:#f1ab21;border:1px solid rgba(241,171,33,.35);border-radius:999px;padding:2px 10px;font-size:11px;font-weight:600;margin-bottom:8px;';
+              expPill.style.cssText = 'display:inline-block;background:rgba(217,47,120,.14);color:#d92f78;border:1px solid rgba(217,47,120,.35);border-radius:999px;padding:2px 10px;font-size:11px;font-weight:600;margin-bottom:8px;';
               expPill.textContent = daysLeft === 0 ? 'Ends tonight!' : `Ends ${promo.end_date} · ${daysLeft} day${daysLeft === 1 ? '' : 's'} left`;
               popBody.appendChild(expPill);
             }
@@ -844,9 +844,9 @@
 
           if (promo.promo_code) {
             const codeRow = document.createElement('div');
-            codeRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;background:#07090b;border:1.5px dashed #f1ab21;border-radius:10px;padding:8px 10px;margin-bottom:12px;';
+            codeRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;background:#07090b;border:1.5px dashed #d92f78;border-radius:10px;padding:8px 10px;margin-bottom:12px;';
             const codeTxt = document.createElement('strong');
-            codeTxt.style.cssText = 'font-family:monospace;font-size:14px;letter-spacing:.08em;color:#f1ab21;';
+            codeTxt.style.cssText = 'font-family:monospace;font-size:14px;letter-spacing:.08em;color:#d92f78;';
             codeTxt.textContent = promo.promo_code;
             const copyBtn = document.createElement('button');
             copyBtn.type = 'button';
@@ -867,7 +867,7 @@
           const actionBtn = document.createElement('a');
           actionBtn.href = promo.promo_code ? `book.html?promo=${encodeURIComponent(promo.promo_code)}` : 'book.html';
           actionBtn.textContent = promo.cta_text || 'Claim Offer & Book Now';
-          actionBtn.style.cssText = 'display:block;width:100%;text-align:center;background:#f1ab21;color:#0b0d10;font-weight:700;font-size:13.5px;padding:10px 14px;border-radius:10px;text-decoration:none;';
+          actionBtn.style.cssText = 'display:block;width:100%;text-align:center;background:#d92f78;color:#0b0d10;font-weight:700;font-size:13.5px;padding:10px 14px;border-radius:10px;text-decoration:none;';
           actionBtn.addEventListener('click', (ev) => {
             const promoInput = document.getElementById('promo-input');
             const applyBtn = document.getElementById('apply-promo-btn');

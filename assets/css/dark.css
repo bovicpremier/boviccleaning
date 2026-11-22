@@ -22,7 +22,7 @@ body.boxed-wrapper .page-wrapper,
 .who-we-serve__bg-color,
 .about-one,
 .services-one__single {
-    background-color: #0e4239;
+    background-color: #253d73;
 }
 
 
@@ -111,12 +111,12 @@ body.boxed-wrapper .page-wrapper,
 }
 
 .testimonial-one__img-shape-2 {
-    border: 5px solid #0e4239;
+    border: 5px solid #253d73;
     border-top: 0;
 }
 
 .testimonial-one__img-shape-1 {
-    border: 5px solid #0e4239;
+    border: 5px solid #253d73;
 }
 
 .blog-one__user-two:before,

@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: bovic-premier-cleaning
+    runtime: node
+    plan: free
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && node server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: "1"
+      - key: BUSINESS_TZ
+        value: America/New_York
+      - key: BASE_URL
+        value: https://boviccleaning.com
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ALLOW_DEMO_CHECKOUT
+        value: "false"

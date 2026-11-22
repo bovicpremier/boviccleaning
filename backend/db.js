@@ -4,10 +4,13 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { DatabaseSync } = require('node:sqlite');
 
-const dataDir = path.join(__dirname, 'data');
+const dataDir = process.env.DATA_DIR
+  ? path.resolve(process.env.DATA_DIR)
+  : path.join(__dirname, 'data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
 const db = new DatabaseSync(path.join(dataDir, 'bovic.db'));
+db.DATA_DIR = dataDir;
 
 db.exec(`
   PRAGMA journal_mode = WAL;

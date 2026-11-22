@@ -1,0 +1,13 @@
+{
+  "name": "bovic-premier-cleaning-pros-llc",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Bovic Premier Cleaning Pros LLC — Website, Online Booking Calendar, Stripe/PayPal Checkout, Automated Emails & Admin Portal",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "install:backend": "cd backend && npm install",
+    "start": "cd backend && node server.js"
+  }
+}

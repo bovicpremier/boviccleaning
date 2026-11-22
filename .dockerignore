@@ -1,0 +1,10 @@
+.git
+.env
+*.env
+backend/node_modules
+backend/data/*.db*
+backend/data/.jwt-secret
+backend/data/INITIAL_CREDENTIALS.txt
+*.log
+.DS_Store
+Thumbs.db

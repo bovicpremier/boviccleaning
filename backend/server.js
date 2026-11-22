@@ -1,6 +1,6 @@
-require('dotenv').config();
-const fs = require('fs');
 const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
+const fs = require('fs');
 const crypto = require('crypto');
 const express = require('express');
 const bcrypt = require('bcryptjs');
@@ -79,7 +79,7 @@ function loadJwtSecret() {
   if (envSec.length >= 32 && !envSec.includes('change_in_production') && !envSec.includes('dev_secret')) {
     return envSec;
   }
-  const secPath = path.join(__dirname, 'data', '.jwt-secret');
+  const secPath = path.join(db.DATA_DIR, '.jwt-secret');
   if (fs.existsSync(secPath)) return fs.readFileSync(secPath, 'utf8').trim();
   const generated = crypto.randomBytes(48).toString('hex');
   fs.writeFileSync(secPath, generated, { mode: 0o600 });
@@ -751,6 +751,18 @@ app.get(['/', '/index.html'], (req, res, next) => {
     res.setHeader('Cache-Control', 'no-cache');
     res.type('html').send(out);
   });
+});
+
+app.get('/api/health', (req, res) => {
+  res.json({ ok: true, service: 'bovic-premier-cleaning', uptime: Math.round(process.uptime()) });
+});
+
+app.get('/assets/images/resources/:file', (req, res, next) => {
+  const m = String(req.params.file || '').match(/^(logo-[123])\.png$/);
+  if (!m) return next();
+  const customFile = path.join(CUSTOM_LOGOS_DIR, `${m[1]}.png`);
+  if (fs.existsSync(customFile)) return res.sendFile(customFile);
+  next();
 });
 
 app.use(express.static(path.resolve(__dirname, '..')));
@@ -1921,6 +1933,9 @@ function detectImageType(buf) {
   return null;
 }
 
+const CUSTOM_LOGOS_DIR = path.join(db.DATA_DIR, 'logos');
+if (!fs.existsSync(CUSTOM_LOGOS_DIR)) fs.mkdirSync(CUSTOM_LOGOS_DIR, { recursive: true });
+
 app.post('/api/admin/site/logo', authRequired(STAFF_ROLES), (req, res) => {
   const { variant, dataUrl } = req.body || {};
   if (!['logo-1', 'logo-2', 'logo-3'].includes(variant)) {
@@ -1934,8 +1949,9 @@ app.post('/api/admin/site/logo', authRequired(STAFF_ROLES), (req, res) => {
   if (buf.length > 2 * 1024 * 1024) return res.status(400).json({ error: 'Logo file must be under 2 MB' });
   if (detectImageType(buf) !== 'png') return res.status(400).json({ error: 'That file is not a valid PNG image (SVG is blocked for security)' });
 
+  fs.writeFileSync(path.join(CUSTOM_LOGOS_DIR, `${variant}.png`), buf);
   const dest = path.resolve(__dirname, '..', 'assets', 'images', 'resources', `${variant}.png`);
-  fs.writeFileSync(dest, buf);
+  try { fs.writeFileSync(dest, buf); } catch {}
 
   const cur = getSite();
   cur.logo_version = Date.now();
@@ -1949,10 +1965,12 @@ app.post('/api/admin/site/logo/reset', authRequired(STAFF_ROLES), (req, res) => 
   if (!['logo-1', 'logo-2', 'logo-3'].includes(variant)) {
     return res.status(400).json({ error: 'Invalid logo variant' });
   }
+  const customFile = path.join(CUSTOM_LOGOS_DIR, `${variant}.png`);
+  if (fs.existsSync(customFile)) fs.unlinkSync(customFile);
   const src = path.join(__dirname, 'data', 'default-logos', `${variant}.png`);
   const dest = path.resolve(__dirname, '..', 'assets', 'images', 'resources', `${variant}.png`);
   if (!fs.existsSync(src)) return res.status(404).json({ error: 'Default logo backup not found' });
-  fs.copyFileSync(src, dest);
+  try { fs.copyFileSync(src, dest); } catch {}
 
   const cur = getSite();
   cur.logo_version = Date.now();

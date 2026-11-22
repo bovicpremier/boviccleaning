@@ -37,7 +37,7 @@
     document.head.appendChild(css);
 
     // 1. String of twinkling lights along the top of the site header(s)
-    const BULB_COLORS = ['#e53935', '#d92f78', '#2e7d32', '#1e88e5', '#ffffff'];
+    const BULB_COLORS = ['#e53935', '#d92f78', '#f4c542', '#a9cdee', '#ffffff'];
     const addLights = (host) => {
       if (!host || host.querySelector(':scope > .bovic-xmas-lights')) return;
       if (getComputedStyle(host).position === 'static') host.style.position = 'relative';

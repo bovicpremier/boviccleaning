@@ -516,8 +516,43 @@
     const handled = await handleReturnStatus();
     if (handled) return;
 
-    const res = await fetch('/api/public/config');
-    const cfg = await res.json();
+    let cfg = null;
+    try {
+      const res = await fetch('/api/public/config');
+      if (res.ok) cfg = await res.json();
+    } catch {}
+
+    if (!cfg || !cfg.catalog) {
+      // Graceful fallback when opened on static GitHub Pages without the Node backend running
+      const m = new Date().getMonth() + 1;
+      cfg = {
+        timeSlots: ['08:00 AM', '10:30 AM', '01:00 PM', '03:30 PM'],
+        maxPerSlot: 2,
+        paymentMethods: [{ key: 'later', label: 'Request Booking by Phone / Email', desc: 'Online checkout requires Node server — call 678-799-4634', icon: 'fas fa-phone' }],
+        demoMode: false,
+        activePromo: m === 11
+          ? { key: 'black_november', badge: 'BLACK NOVEMBER SALE', promo_code: 'BLACKNOV20', discount_percent: 20 }
+          : (m === 12 ? { key: 'christmas_december', badge: 'CHRISTMAS & HOLIDAY SPECIAL', promo_code: 'XMAS15', discount_percent: 15 } : null),
+        catalog: {
+          freqLabels: { biweekly: 'Every 2 weeks', weekly: 'Weekly (-15%)', onetime: 'One-Time Clean' },
+          services: {
+            standard: { label: 'Standard Home Cleaning', short: 'Standard Home', desc: 'Regular upkeep', sizes: { cozy: 'Cozy · Studio–2 bed', family: 'Family · 3 bed / 2 bath', estate: 'Estate · 4+ bed' }, prices: { biweekly: { cozy: 15000, family: 19000, estate: 24000 }, weekly: { cozy: 13000, family: 16000, estate: 20500 } } },
+            deep: { label: 'Deep Clean', short: 'Deep Clean', desc: 'Top-to-bottom reset', sizes: { cozy: 'Cozy · Studio–2 bed', family: 'Family · 3 bed / 2 bath', estate: 'Estate · 4+ bed' }, prices: { onetime: { cozy: 25000, family: 32000, estate: 42000 } } },
+            move: { label: 'Move-In / Move-Out Cleaning', short: 'Move-In / Move-Out', desc: 'Empty-home turnover clean', sizes: { cozy: 'Cozy · Studio–2 bed', family: 'Family · 3 bed / 2 bath', estate: 'Estate · 4+ bed' }, prices: { onetime: { cozy: 30000, family: 38000, estate: 48000 } } },
+            airbnb: { label: 'Airbnb / Short-Term Rental Turnover', short: 'Airbnb Turnover', desc: 'Linen reset & staging', sizes: { cozy: 'Cozy · Studio–2 bed', family: 'Family · 3 bed / 2 bath', estate: 'Estate · 4+ bed' }, prices: { onetime: { cozy: 14000, family: 18000, estate: null } } },
+            office: { label: 'Commercial / Office Cleaning', short: 'Office Cleaning', desc: 'Custom workplace care', sizes: { cozy: 'Small Office (<2,000 sq ft)', family: 'Mid Office (2k–5k sq ft)', estate: 'Large Facility (5,000+ sq ft)' }, prices: { onetime: { cozy: null, family: null, estate: null } } },
+          },
+        },
+      };
+      const bv = document.getElementById('booking-view');
+      if (bv) {
+        const note = document.createElement('div');
+        note.className = 'col-12';
+        note.innerHTML = '<div class="alert alert-warning mb-0 small"><strong>Static Hosting Mode:</strong> Interactive instant checkout &amp; live calendar saving require your Node server (<code>backend/server.js</code>). View instant pricing below or call <a href="tel:+16787994634" class="fw-bold">678-799-4634</a> / email <a href="mailto:booking@boviccleaning.com" class="fw-bold">booking@boviccleaning.com</a> to lock in your date.</div>';
+        bv.insertBefore(note, bv.firstChild);
+      }
+    }
+
     state.catalog = cfg.catalog;
     state.paymentMethods = cfg.paymentMethods || [];
     state.demoMode = cfg.demoMode;

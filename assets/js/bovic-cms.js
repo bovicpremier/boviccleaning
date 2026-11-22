@@ -315,8 +315,55 @@
     }
   })();
 
+  function buildStaticFallback() {
+    const m = new Date().getMonth() + 1;
+    let activePromo = null;
+    if (m === 11) {
+      activePromo = {
+        key: 'black_november',
+        theme: 'black_november',
+        enabled: true,
+        badge: 'BLACK NOVEMBER SALE',
+        title: '20% OFF Deep Clean & Move-In / Move-Out Cleanings',
+        subtitle: 'Limited-time November savings across Buckhead, Sandy Springs, Roswell & Alpharetta.',
+        promo_code: 'BLACKNOV20',
+        discount_percent: 20,
+        cta_text: 'Claim 20% Off',
+        end_date: '2026-11-30',
+      };
+    } else if (m === 12) {
+      activePromo = {
+        key: 'christmas_december',
+        theme: 'christmas',
+        enabled: true,
+        decorations: true,
+        badge: 'CHRISTMAS & HOLIDAY SPECIAL',
+        title: '15% OFF Holiday & Christmas Guest-Ready Cleaning',
+        subtitle: 'Sparkling kitchens, baths & living areas before family and holiday guests arrive.',
+        promo_code: 'XMAS15',
+        discount_percent: 15,
+        cta_text: 'Book Holiday Clean',
+        end_date: '2026-12-31',
+      };
+    }
+    return {
+      site: {
+        company_name: 'Bovic Premier Cleaning Pros LLC',
+        tagline: 'Premier Home & Office Cleaning in North Atlanta',
+        phone: '678-799-4634',
+        booking_email: 'booking@boviccleaning.com',
+        info_email: 'info@boviccleaning.com',
+        service_areas: 'Buckhead, Sandy Springs, Roswell & Alpharetta, GA',
+        social: {},
+      },
+      catalog: null,
+      activePromo,
+    };
+  }
+
   fetch('/api/public/site')
-    .then(r => (r.ok ? r.json() : null))
+    .then(r => (r.ok ? r.json() : buildStaticFallback()))
+    .catch(() => buildStaticFallback())
     .then(data => {
       if (!data || !data.site) return;
       const s = data.site;

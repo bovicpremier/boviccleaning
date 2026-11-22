@@ -1183,7 +1183,22 @@
   // Boot: check existing HttpOnly session cookie
   (async () => {
     try {
-      const data = await api('/api/auth/me');
+      const probe = await fetch('/api/auth/me', { credentials: 'same-origin' });
+      const ct = (probe.headers.get('content-type') || '').toLowerCase();
+      if (!ct.includes('application/json')) {
+        showLoginView();
+        const err = document.getElementById('login-err');
+        if (err) {
+          err.textContent = 'Admin backend API is not active on this host. GitHub Pages only serves static HTML — run or host backend/server.js (e.g., Render, Railway, VPS, or http://localhost:3000/admin.html) to sign in.';
+          err.style.display = 'block';
+        }
+        return;
+      }
+      if (!probe.ok) {
+        showLoginView();
+        return;
+      }
+      const data = await probe.json();
       ME = data.user;
       if (ME.must_change_password) showForcePasswordView();
       else enterApp();

@@ -17,5 +17,11 @@ services:
         value: https://boviccleaning.com
       - key: JWT_SECRET
         generateValue: true
+      - key: INITIAL_ADMIN_PASSWORD
+        generateValue: true
       - key: ALLOW_DEMO_CHECKOUT
         value: "false"
+      - key: TURSO_DATABASE_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
+        sync: false

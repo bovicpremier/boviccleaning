@@ -12,10 +12,6 @@ const db = require('./db');
 const catalog = require('./catalog');
 const mailer = require('./mailer');
 
-// Ensure seasonal promo columns exist cleanly
-try { db.exec("ALTER TABLE bookings ADD COLUMN promo_code TEXT DEFAULT ''"); } catch {}
-try { db.exec('ALTER TABLE bookings ADD COLUMN discount_cents INTEGER NOT NULL DEFAULT 0'); } catch {}
-
 const app = express();
 app.disable('x-powered-by');
 // Only trust X-Forwarded-For when explicitly running behind a reverse proxy (nginx, Cloudflare, cPanel Node proxy).
@@ -73,19 +69,25 @@ function zonedToEpoch(dateStr, hr, min) {
   return guess;
 }
 
-// Strong JWT signing secret (never a hardcoded literal)
-function loadJwtSecret() {
+// Strong JWT signing secret (persisted in env, Turso/DB settings, or DATA_DIR/.jwt-secret)
+let JWT_SECRET = '';
+async function resolveJwtSecret() {
   const envSec = (process.env.JWT_SECRET || '').trim();
   if (envSec.length >= 32 && !envSec.includes('change_in_production') && !envSec.includes('dev_secret')) {
     return envSec;
   }
+  const dbSec = SETTINGS_CACHE.get('jwt_secret_raw');
+  if (dbSec && dbSec.length >= 32) return dbSec;
   const secPath = path.join(db.DATA_DIR, '.jwt-secret');
-  if (fs.existsSync(secPath)) return fs.readFileSync(secPath, 'utf8').trim();
-  const generated = crypto.randomBytes(48).toString('hex');
-  fs.writeFileSync(secPath, generated, { mode: 0o600 });
-  return generated;
+  let secretVal = '';
+  if (fs.existsSync(secPath)) secretVal = fs.readFileSync(secPath, 'utf8').trim();
+  if (secretVal.length < 32) {
+    secretVal = crypto.randomBytes(48).toString('hex');
+    try { fs.writeFileSync(secPath, secretVal, { mode: 0o600 }); } catch {}
+  }
+  await setSettingRaw('jwt_secret_raw', secretVal);
+  return secretVal;
 }
-const JWT_SECRET = loadJwtSecret();
 
 const stripeKey = process.env.STRIPE_SECRET_KEY || '';
 const stripeApiConfigured =
@@ -137,19 +139,17 @@ function clientIp(req) {
 }
 
 function auditLog(req, actor, action, target = '', details = '') {
-  try {
-    db.prepare(`
+  Promise.resolve().then(() => db.run(`
       INSERT INTO audit_logs (actor_id, actor_email, actor_role, action, target, ip, details)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`).run(
-      actor ? actor.id : null,
-      actor ? actor.email : '',
-      actor ? actor.role : '',
-      action,
-      String(target || '').slice(0, 120),
-      clientIp(req),
-      String(details || '').slice(0, 300)
-    );
-  } catch {}
+      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    actor ? actor.id : null,
+    actor ? actor.email : '',
+    actor ? actor.role : '',
+    action,
+    String(target || '').slice(0, 120),
+    clientIp(req),
+    String(details || '').slice(0, 300)
+  )).catch(() => {});
 }
 
 function validatePasswordStrength(pw) {
@@ -332,12 +332,20 @@ const DEFAULT_SITE = {
   },
 };
 
+const SETTINGS_CACHE = new Map();
+
+async function loadSettingsCache() {
+  SETTINGS_CACHE.clear();
+  const rows = await db.all('SELECT key, value FROM settings');
+  for (const r of rows) SETTINGS_CACHE.set(r.key, r.value);
+}
+
 function getSite() {
-  const row = db.prepare("SELECT value FROM settings WHERE key = 'site'").get();
+  const rawVal = SETTINGS_CACHE.get('site');
   const base = JSON.parse(JSON.stringify(DEFAULT_SITE));
-  if (!row) return base;
+  if (!rawVal) return base;
   try {
-    const parsed = JSON.parse(row.value);
+    const parsed = JSON.parse(rawVal);
     return {
       ...base,
       ...parsed,
@@ -448,13 +456,24 @@ const DEFAULT_PAYMENTS = {
 };
 
 function getSetting(key, fallback) {
-  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
-  if (!row) return fallback;
-  try { return { ...fallback, ...JSON.parse(row.value) }; } catch { return fallback; }
+  const rawVal = SETTINGS_CACHE.get(key);
+  if (rawVal === undefined) return fallback;
+  try { return { ...fallback, ...JSON.parse(rawVal) }; } catch { return fallback; }
 }
-function setSetting(key, value) {
-  db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
-    .run(key, JSON.stringify(value));
+async function setSettingRaw(key, rawString) {
+  SETTINGS_CACHE.set(key, rawString);
+  await db.run(
+    'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+    key,
+    rawString
+  );
+}
+async function setSetting(key, value) {
+  await setSettingRaw(key, JSON.stringify(value));
+}
+async function deleteSetting(key) {
+  SETTINGS_CACHE.delete(key);
+  await db.run('DELETE FROM settings WHERE key = ?', key);
 }
 const getPayments = () => getSetting('payments', DEFAULT_PAYMENTS);
 
@@ -533,23 +552,23 @@ const METHOD_LABELS = { stripe: 'Stripe', stripe_link: 'Stripe', paypal: 'PayPal
 // ============================================================
 // BOOKING HELPERS
 // ============================================================
-function getBooking(id) {
-  return db.prepare(`
+async function getBooking(id) {
+  return db.get(`
     SELECT b.*, u.name AS worker_name, u.email AS worker_email, u.phone AS worker_phone
     FROM bookings b LEFT JOIN users u ON b.assigned_worker_id = u.id
-    WHERE b.id = ?`).get(id);
+    WHERE b.id = ?`, id);
 }
 
 async function markPaid(booking, method, reference) {
   if (!booking || booking.payment_status === 'paid') return booking;
-  db.prepare(`
+  await db.run(`
     UPDATE bookings
     SET payment_status = 'paid', payment_method = ?, payment_reference = ?, paid_at = datetime('now'),
         booking_status = CASE WHEN booking_status = 'pending' THEN 'confirmed' ELSE booking_status END
-    WHERE id = ?`).run(method || booking.payment_method || '', reference || '', booking.id);
-  const updated = getBooking(booking.id);
+    WHERE id = ?`, method || booking.payment_method || '', reference || '', booking.id);
+  const updated = await getBooking(booking.id);
   if (updated.booking_status === 'cancelled') {
-    postMessage({
+    await postMessage({
       threadType: 'booking', bookingId: updated.id, sender: null,
       body: `Payment received for this booking, but it is marked cancelled (its slot may have been released). Please review and contact the customer.`,
     });
@@ -568,13 +587,13 @@ async function flagPaymentMismatch(booking, session) {
   const paid = (Number(session.amount_total || 0) / 100).toFixed(2);
   const expected = (Number(booking.price_cents || 0) / 100).toFixed(2);
   const ref = session.payment_intent || session.id;
-  const already = db.prepare("SELECT 1 FROM audit_logs WHERE action = 'payment_amount_mismatch' AND details LIKE ?").get(`%${ref}%`);
+  const already = await db.get("SELECT 1 FROM audit_logs WHERE action = 'payment_amount_mismatch' AND details LIKE ?", `%${ref}%`);
   if (already) return;
   const note = `Stripe payment of $${paid} ${String(session.currency || '').toUpperCase()} received, but this booking costs $${expected}. NOT auto-marked paid — check Stripe (ref ${ref}) and mark paid or refund manually.`;
-  postMessage({ threadType: 'booking', bookingId: booking.id, sender: null, body: note });
+  await postMessage({ threadType: 'booking', bookingId: booking.id, sender: null, body: note });
   try {
-    db.prepare(`INSERT INTO audit_logs (actor_id, actor_email, actor_role, action, target, ip, details) VALUES (NULL, '', 'system', 'payment_amount_mismatch', ?, '', ?)`)
-      .run(String(booking.booking_code), note.slice(0, 300));
+    await db.run(`INSERT INTO audit_logs (actor_id, actor_email, actor_role, action, target, ip, details) VALUES (NULL, '', 'system', 'payment_amount_mismatch', ?, '', ?)`,
+      String(booking.booking_code), note.slice(0, 300));
   } catch {}
   await mailer.sendStaffNotification({
     to: process.env.ADMIN_ALERT_EMAIL || 'booking@boviccleaning.com',
@@ -593,10 +612,10 @@ const ACTIVE_BOOKING_SQL = `booking_status != 'cancelled' AND NOT (
     (payment_method IN ('stripe_link', 'paypal') AND quote_required = 0 AND created_at < datetime('now', '-24 hours'))
   ))`;
 
-function postMessage({ threadType, bookingId = null, recipientId = null, audience = 'team', sender, body, emailStatus = '' }) {
-  const info = db.prepare(`
+async function postMessage({ threadType, bookingId = null, recipientId = null, audience = 'team', sender, body, emailStatus = '' }) {
+  const info = await db.run(`
     INSERT INTO messages (thread_type, booking_id, recipient_id, audience, sender_id, sender_name, sender_role, body, email_status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     threadType, bookingId, recipientId, audience,
     sender ? sender.id : null, sender ? sender.name : 'System', sender ? sender.role : 'system',
     body, emailStatus
@@ -620,9 +639,9 @@ app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), asyn
       const s = event.data.object;
       if (s.payment_status === 'paid') {
         // Prefer the server-created session id; fall back to the booking code (Payment Links)
-        let booking = db.prepare('SELECT * FROM bookings WHERE stripe_session_id = ?').get(s.id);
+        let booking = await db.get('SELECT * FROM bookings WHERE stripe_session_id = ?', s.id);
         const code = s.client_reference_id || (s.metadata && s.metadata.booking_code);
-        if (!booking && code) booking = db.prepare('SELECT * FROM bookings WHERE booking_code = ?').get(code);
+        if (!booking && code) booking = await db.get('SELECT * FROM bookings WHERE booking_code = ?', code);
         if (booking && booking.payment_status !== 'paid') {
           // Never trust the booking code alone: the amount charged must equal the booking price
           if (stripeAmountMatches(booking, s)) {
@@ -760,6 +779,11 @@ app.get('/api/health', (req, res) => {
 app.get('/assets/images/resources/:file', (req, res, next) => {
   const m = String(req.params.file || '').match(/^(logo-[123])\.png$/);
   if (!m) return next();
+  const dbLogo = getSetting('logo_' + m[1], null);
+  if (dbLogo && dbLogo.data) {
+    res.type('png').send(Buffer.from(dbLogo.data, 'base64'));
+    return;
+  }
   const customFile = path.join(CUSTOM_LOGOS_DIR, `${m[1]}.png`);
   if (fs.existsSync(customFile)) return res.sendFile(customFile);
   next();
@@ -794,7 +818,7 @@ function verifyCsrfAndOrigin(req) {
 }
 
 function authRequired(roles = [], options = {}) {
-  return (req, res, next) => {
+  return async (req, res, next) => {
     const cookies = parseCookies(req);
     const token = cookies[SESSION_COOKIE];
     if (!token) return res.status(401).json({ error: 'Authentication required' });
@@ -805,10 +829,10 @@ function authRequired(roles = [], options = {}) {
 
     try {
       const payload = jwt.verify(token, JWT_SECRET);
-      const user = db.prepare(`
+      const user = await db.get(`
         SELECT id, name, email, role, phone, service_areas, active, token_version, must_change_password
         FROM users WHERE id = ?
-      `).get(payload.id);
+      `, payload.id);
 
       if (!user || !user.active || payload.tv !== user.token_version) {
         return res.status(401).json({ error: 'Session expired or revoked — please sign in again' });
@@ -830,7 +854,7 @@ function authRequired(roles = [], options = {}) {
   };
 }
 
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   const ip = clientIp(req);
   if (!checkRate(`login_ip:${ip}`, 15, 15 * 60 * 1000)) {
     auditLog(req, null, 'login_rate_limited', ip, 'Too many login attempts from IP');
@@ -841,7 +865,7 @@ app.post('/api/auth/login', (req, res) => {
   const cleanEmail = String(email || '').trim().toLowerCase();
   if (!cleanEmail || !password) return res.status(400).json({ error: 'Email and password required' });
 
-  const user = db.prepare('SELECT * FROM users WHERE LOWER(email) = LOWER(?)').get(cleanEmail);
+  const user = await db.get('SELECT * FROM users WHERE LOWER(email) = LOWER(?)', cleanEmail);
 
   // Per (account + IP) limit: 5 wrong passwords from one IP blocks only that IP for this account,
   // so an attacker can't lock the real owner out from their own device.
@@ -865,7 +889,7 @@ app.post('/api/auth/login', (req, res) => {
       const fails = Number(user.failed_attempts || 0) + 1;
       const locking = fails >= ACCOUNT_LOCK_THRESHOLD;
       const lockUntil = locking ? new Date(Date.now() + 15 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ') : '';
-      db.prepare('UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?').run(locking ? 0 : fails, lockUntil, user.id);
+      await db.run('UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?', locking ? 0 : fails, lockUntil, user.id);
       auditLog(req, user, locking ? 'account_locked' : 'login_failed', cleanEmail, `Failed attempts: ${fails}`);
     } else {
       auditLog(req, null, 'login_failed', cleanEmail, 'Unknown email');
@@ -879,7 +903,7 @@ app.post('/api/auth/login', (req, res) => {
     return res.status(403).json({ error: 'This account has been deactivated.' });
   }
 
-  db.prepare("UPDATE users SET failed_attempts = 0, locked_until = '' WHERE id = ?").run(user.id);
+  await db.run("UPDATE users SET failed_attempts = 0, locked_until = '' WHERE id = ?", user.id);
 
   const token = jwt.sign({ id: user.id, role: user.role, tv: user.token_version }, JWT_SECRET, { expiresIn: '8h' });
   const csrfToken = crypto.randomBytes(24).toString('hex');
@@ -913,23 +937,23 @@ app.get('/api/auth/me', authRequired([], { allowPasswordChangeOnly: true }), (re
   });
 });
 
-app.post('/api/auth/logout', authRequired([], { allowPasswordChangeOnly: true }), (req, res) => {
-  db.prepare('UPDATE users SET token_version = token_version + 1 WHERE id = ?').run(req.user.id);
+app.post('/api/auth/logout', authRequired([], { allowPasswordChangeOnly: true }), async (req, res) => {
+  await db.run('UPDATE users SET token_version = token_version + 1 WHERE id = ?', req.user.id);
   clearSessionCookies(res, req);
   auditLog(req, req.user, 'logout', req.user.email);
   res.json({ success: true });
 });
 
-app.post('/api/auth/logout-all', authRequired(['super_admin']), (req, res) => {
-  db.prepare('UPDATE users SET token_version = token_version + 1').run();
+app.post('/api/auth/logout-all', authRequired(['super_admin']), async (req, res) => {
+  await db.run('UPDATE users SET token_version = token_version + 1');
   clearSessionCookies(res, req);
   auditLog(req, req.user, 'logout_all_devices', 'all_users');
   res.json({ success: true });
 });
 
-app.patch('/api/auth/password', authRequired([], { allowPasswordChangeOnly: true }), (req, res) => {
+app.patch('/api/auth/password', authRequired([], { allowPasswordChangeOnly: true }), async (req, res) => {
   const { current_password, new_password } = req.body || {};
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+  const user = await db.get('SELECT * FROM users WHERE id = ?', req.user.id);
   if (!bcrypt.compareSync(String(current_password || ''), user.password_hash)) {
     return res.status(400).json({ error: 'Current password is incorrect' });
   }
@@ -940,8 +964,8 @@ app.patch('/api/auth/password', authRequired([], { allowPasswordChangeOnly: true
   }
 
   const nextTv = Number(user.token_version || 1) + 1;
-  db.prepare('UPDATE users SET password_hash = ?, must_change_password = 0, token_version = ? WHERE id = ?')
-    .run(bcrypt.hashSync(String(new_password), 12), nextTv, user.id);
+  await db.run('UPDATE users SET password_hash = ?, must_change_password = 0, token_version = ? WHERE id = ?',
+    bcrypt.hashSync(String(new_password), 12), nextTv, user.id);
 
   // Re-issue fresh session cookie for this device with updated token_version
   const token = jwt.sign({ id: user.id, role: user.role, tv: nextTv }, JWT_SECRET, { expiresIn: '8h' });
@@ -998,15 +1022,15 @@ function closedSlotsFor(dateStr, now = Date.now()) {
   return TIME_SLOTS.filter(s => apptTime(dateStr, s) <= now + BOOKING_LEAD_MINUTES * 60000);
 }
 
-app.get('/api/availability', (req, res) => {
+app.get('/api/availability', async (req, res) => {
   const today = businessToday();
   const month = String(req.query.month || today.slice(0, 7));
   if (!/^\d{4}-\d{2}$/.test(month)) return res.status(400).json({ error: 'Invalid month (YYYY-MM)' });
-  const blocked = db.prepare('SELECT date, reason FROM blocked_dates WHERE date LIKE ?').all(`${month}-%`);
-  const counts = db.prepare(`
+  const blocked = await db.all('SELECT date, reason FROM blocked_dates WHERE date LIKE ?', `${month}-%`);
+  const counts = await db.all(`
     SELECT cleaning_date, time_slot, COUNT(*) AS cnt FROM bookings
     WHERE cleaning_date LIKE ? AND ${ACTIVE_BOOKING_SQL}
-    GROUP BY cleaning_date, time_slot`).all(`${month}-%`);
+    GROUP BY cleaning_date, time_slot`, `${month}-%`);
   const bookedSlots = {};
   for (const r of counts) {
     (bookedSlots[r.cleaning_date] = bookedSlots[r.cleaning_date] || {})[r.time_slot] = r.cnt;
@@ -1056,14 +1080,15 @@ app.post('/api/bookings/checkout', async (req, res) => {
     const finalPrice = isQuote ? 0 : (promo ? promo.final_cents : basePrice);
     const discountCents = isQuote ? 0 : (promo ? promo.discount_cents : 0);
 
-    const blocked = db.prepare('SELECT reason FROM blocked_dates WHERE date = ?').get(date);
+    const blocked = await db.get('SELECT reason FROM blocked_dates WHERE date = ?', date);
     if (blocked) return res.status(409).json({ error: `That date is unavailable (${blocked.reason}). Please choose another day.` });
-    const taken = db.prepare(`SELECT COUNT(*) AS c FROM bookings WHERE cleaning_date = ? AND time_slot = ? AND ${ACTIVE_BOOKING_SQL}`).get(date, slot).c;
-    if (taken >= MAX_BOOKINGS_PER_SLOT) return res.status(409).json({ error: 'That time slot just filled up — please pick another.' });
+    const takenRow = await db.get(`SELECT COUNT(*) AS c FROM bookings WHERE cleaning_date = ? AND time_slot = ? AND ${ACTIVE_BOOKING_SQL}`, date, slot);
+    if (Number(takenRow.c) >= MAX_BOOKINGS_PER_SLOT) return res.status(409).json({ error: 'That time slot just filled up — please pick another.' });
 
     // Anti-abuse: cap how many open upcoming bookings one email can hold
-    const openForEmail = db.prepare(`SELECT COUNT(*) AS c FROM bookings WHERE LOWER(customer_email) = LOWER(?)
-      AND cleaning_date >= ? AND booking_status NOT IN ('cancelled','completed') AND ${ACTIVE_BOOKING_SQL}`).get(email, businessToday()).c;
+    const openEmailRow = await db.get(`SELECT COUNT(*) AS c FROM bookings WHERE LOWER(customer_email) = LOWER(?)
+      AND cleaning_date >= ? AND booking_status NOT IN ('cancelled','completed') AND ${ACTIVE_BOOKING_SQL}`, email, businessToday());
+    const openForEmail = Number(openEmailRow.c);
     if (openForEmail >= MAX_OPEN_BOOKINGS_PER_EMAIL) {
       return res.status(429).json({ error: 'You already have several upcoming bookings with us. Please call 678-799-4634 to add more.' });
     }
@@ -1084,20 +1109,20 @@ app.post('/api/bookings/checkout', async (req, res) => {
     const noteRaw = String(b.notes || '').trim();
     const fullNote = (promo ? `[Promo ${promo.promo_code} -${promo.discount_percent}%] ` : '') + noteRaw;
     const code = 'BOV-' + crypto.randomBytes(4).toString('hex').toUpperCase();
-    const info = db.prepare(`
+    const info = await db.run(`
       INSERT INTO bookings (booking_code, customer_name, customer_email, customer_phone, address, service_area,
         service_type, home_size, frequency, cleaning_date, time_slot, price_cents, notes,
         service_key, size_key, frequency_key, quote_required, payment_method, payment_status, booking_status,
         promo_code, discount_cents)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)`).run(
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)`,
       code, name, email, phone, address, String(b.service_area || 'Buckhead').slice(0, 80),
       labels.service, labels.size, labels.freq, date, slot, finalPrice, fullNote.slice(0, 1000),
       b.service_key, sizeKey, freqKey, isQuote ? 1 : 0, method === 'quote' ? '' : method,
       method === 'later' ? 'confirmed' : 'pending',
       promo ? promo.promo_code : '', discountCents
     );
-    const booking = getBooking(info.lastInsertRowid);
-    const cancelBooking = () => db.prepare("UPDATE bookings SET booking_status = 'cancelled' WHERE id = ?").run(booking.id);
+    const booking = await getBooking(info.lastInsertRowid);
+    const cancelBooking = () => db.run("UPDATE bookings SET booking_status = 'cancelled' WHERE id = ?", booking.id);
 
     if (isQuote) {
       await mailer.sendQuoteReceived(booking);
@@ -1127,17 +1152,17 @@ app.post('/api/bookings/checkout', async (req, res) => {
           cancel_url: `${BASE_URL}/book.html?status=cancelled&code=${code}`,
         });
       } catch (err) {
-        cancelBooking(); // release the slot if Stripe is unreachable
+        await cancelBooking(); // release the slot if Stripe is unreachable
         throw err;
       }
-      db.prepare('UPDATE bookings SET stripe_session_id = ? WHERE id = ?').run(session.id, booking.id);
+      await db.run('UPDATE bookings SET stripe_session_id = ? WHERE id = ?', session.id, booking.id);
       return res.json({ mode: 'redirect', checkoutUrl: session.url, bookingCode: code });
     }
 
     if (method === 'stripe_link' || method === 'paypal') {
       const payUrl = method === 'paypal' ? paypalLinkFor(booking) : stripeLinkFor(booking);
       if (!payUrl) {
-        cancelBooking();
+        await cancelBooking();
         return res.status(400).json({
           error: promo
             ? `Promo codes can’t be paid through this ${METHOD_LABELS[method]} link. Choose another payment method or remove the code.`
@@ -1154,11 +1179,11 @@ app.post('/api/bookings/checkout', async (req, res) => {
     }
 
     if (method !== 'demo' || !DEMO_CHECKOUT_ALLOWED) {
-      cancelBooking();
+      await cancelBooking();
       return res.status(503).json({ error: 'Online payment is temporarily unavailable. Please call 678-799-4634 to book.' });
     }
     const demoSession = 'demo_cs_' + crypto.randomBytes(8).toString('hex');
-    db.prepare('UPDATE bookings SET stripe_session_id = ? WHERE id = ?').run(demoSession, booking.id);
+    await db.run('UPDATE bookings SET stripe_session_id = ? WHERE id = ?', demoSession, booking.id);
     return res.json({ mode: 'demo', checkoutUrl: `${BASE_URL}/book.html?status=demo_pay&session_id=${demoSession}&amount=${(finalPrice / 100).toFixed(2)}`, bookingCode: code });
   } catch (err) {
     console.error('[Checkout Error]', err);
@@ -1173,7 +1198,7 @@ app.post('/api/bookings/confirm-session', async (req, res) => {
   try {
     const sid = String((req.body || {}).session_id || '');
     if (!sid) return res.status(400).json({ error: 'Missing session_id' });
-    const booking = db.prepare('SELECT * FROM bookings WHERE stripe_session_id = ?').get(sid);
+    const booking = await db.get('SELECT * FROM bookings WHERE stripe_session_id = ?', sid);
     if (!booking) return res.status(404).json({ error: 'Booking not found' });
 
     if (sid.startsWith('demo_cs_')) {
@@ -1260,32 +1285,35 @@ app.post('/api/contact', async (req, res) => {
 // ============================================================
 // DASHBOARD: STATS & BOOKINGS
 // ============================================================
-function unreadCountFor(user) {
-  return threadsFor(user).reduce((sum, t) => sum + t.unread, 0);
+async function unreadCountFor(user) {
+  return (await threadsFor(user)).reduce((sum, t) => sum + t.unread, 0);
 }
 
-app.get('/api/admin/stats', authRequired(), (req, res) => {
+app.get('/api/admin/stats', authRequired(), async (req, res) => {
   const today = businessToday();
-  const unreadMessages = unreadCountFor(req.user);
+  const unreadMessages = await unreadCountFor(req.user);
   if (req.user.role === 'worker') {
-    const q = sql => db.prepare(sql).get(req.user.id).c;
-    return res.json({
-      myJobs: q('SELECT COUNT(*) AS c FROM bookings WHERE assigned_worker_id = ?'),
-      todayJobs: db.prepare("SELECT COUNT(*) AS c FROM bookings WHERE assigned_worker_id = ? AND cleaning_date = ? AND booking_status != 'cancelled'").get(req.user.id, today).c,
-      upcoming: q("SELECT COUNT(*) AS c FROM bookings WHERE assigned_worker_id = ? AND booking_status IN ('assigned','in_progress','confirmed')"),
-      completed: q("SELECT COUNT(*) AS c FROM bookings WHERE assigned_worker_id = ? AND booking_status = 'completed'"),
-      unreadMessages,
-    });
+    const q = async (sql, ...args) => Number((await db.get(sql, ...args)).c);
+    const [myJobs, todayJobs, upcoming, completed] = await Promise.all([
+      q('SELECT COUNT(*) AS c FROM bookings WHERE assigned_worker_id = ?', req.user.id),
+      q("SELECT COUNT(*) AS c FROM bookings WHERE assigned_worker_id = ? AND cleaning_date = ? AND booking_status != 'cancelled'", req.user.id, today),
+      q("SELECT COUNT(*) AS c FROM bookings WHERE assigned_worker_id = ? AND booking_status IN ('assigned','in_progress','confirmed')", req.user.id),
+      q("SELECT COUNT(*) AS c FROM bookings WHERE assigned_worker_id = ? AND booking_status = 'completed'", req.user.id),
+    ]);
+    return res.json({ myJobs, todayJobs, upcoming, completed, unreadMessages });
   }
-  const one = sql => db.prepare(sql).get().c;
+  const one = async (sql, ...args) => Number((await db.get(sql, ...args)).c);
+  const [paidRevenueCents, totalBookings, needsWorker, unpaid, quotes, todayJobs, activeWorkers] = await Promise.all([
+    one("SELECT COALESCE(SUM(price_cents), 0) AS c FROM bookings WHERE payment_status = 'paid'"),
+    one("SELECT COUNT(*) AS c FROM bookings WHERE booking_status != 'cancelled'"),
+    one("SELECT COUNT(*) AS c FROM bookings WHERE assigned_worker_id IS NULL AND booking_status IN ('pending','confirmed')"),
+    one("SELECT COUNT(*) AS c FROM bookings WHERE payment_status = 'pending' AND booking_status != 'cancelled' AND price_cents > 0"),
+    one("SELECT COUNT(*) AS c FROM bookings WHERE quote_required = 1 AND price_cents = 0 AND booking_status != 'cancelled'"),
+    one("SELECT COUNT(*) AS c FROM bookings WHERE cleaning_date = ? AND booking_status != 'cancelled'", today),
+    one("SELECT COUNT(*) AS c FROM users WHERE role = 'worker' AND active = 1"),
+  ]);
   res.json({
-    paidRevenueCents: one("SELECT COALESCE(SUM(price_cents), 0) AS c FROM bookings WHERE payment_status = 'paid'"),
-    totalBookings: one("SELECT COUNT(*) AS c FROM bookings WHERE booking_status != 'cancelled'"),
-    needsWorker: one("SELECT COUNT(*) AS c FROM bookings WHERE assigned_worker_id IS NULL AND booking_status IN ('pending','confirmed')"),
-    unpaid: one("SELECT COUNT(*) AS c FROM bookings WHERE payment_status = 'pending' AND booking_status != 'cancelled' AND price_cents > 0"),
-    quotes: one("SELECT COUNT(*) AS c FROM bookings WHERE quote_required = 1 AND price_cents = 0 AND booking_status != 'cancelled'"),
-    todayJobs: db.prepare("SELECT COUNT(*) AS c FROM bookings WHERE cleaning_date = ? AND booking_status != 'cancelled'").get(today).c,
-    activeWorkers: one("SELECT COUNT(*) AS c FROM users WHERE role = 'worker' AND active = 1"),
+    paidRevenueCents, totalBookings, needsWorker, unpaid, quotes, todayJobs, activeWorkers,
     unreadMessages,
     stripeApiConfigured,
     smtpConfigured: Boolean(process.env.SMTP_HOST && process.env.SMTP_PASS),
@@ -1293,16 +1321,16 @@ app.get('/api/admin/stats', authRequired(), (req, res) => {
   });
 });
 
-app.get('/api/admin/bookings', authRequired(), (req, res) => {
+app.get('/api/admin/bookings', authRequired(), async (req, res) => {
   const base = `SELECT b.*, u.name AS worker_name FROM bookings b LEFT JOIN users u ON b.assigned_worker_id = u.id`;
   const rows = req.user.role === 'worker'
-    ? db.prepare(`${base} WHERE b.assigned_worker_id = ? ORDER BY b.cleaning_date, b.time_slot`).all(req.user.id)
-    : db.prepare(`${base} ORDER BY CASE WHEN b.booking_status IN ('completed','cancelled') THEN 1 ELSE 0 END, b.cleaning_date, b.time_slot`).all();
+    ? await db.all(`${base} WHERE b.assigned_worker_id = ? ORDER BY b.cleaning_date, b.time_slot`, req.user.id)
+    : await db.all(`${base} ORDER BY CASE WHEN b.booking_status IN ('completed','cancelled') THEN 1 ELSE 0 END, b.cleaning_date, b.time_slot`);
   res.json({ bookings: rows });
 });
 
-app.get('/api/admin/bookings/:id', authRequired(), (req, res) => {
-  const b = getBooking(Number(req.params.id));
+app.get('/api/admin/bookings/:id', authRequired(), async (req, res) => {
+  const b = await getBooking(Number(req.params.id));
   if (!b) return res.status(404).json({ error: 'Booking not found' });
   if (req.user.role === 'worker' && b.assigned_worker_id !== req.user.id) return res.status(403).json({ error: 'Not your job' });
   const links = req.user.role === 'worker' ? {} : {
@@ -1311,59 +1339,63 @@ app.get('/api/admin/bookings/:id', authRequired(), (req, res) => {
     stripe_api: stripeApiConfigured,
   };
   const emails = req.user.role === 'worker' ? [] :
-    db.prepare('SELECT email_type, recipient, subject, status, sent_at FROM email_logs WHERE booking_id = ? ORDER BY sent_at DESC LIMIT 30').all(b.id);
+    await db.all('SELECT email_type, recipient, subject, status, sent_at FROM email_logs WHERE booking_id = ? ORDER BY sent_at DESC LIMIT 30', b.id);
   res.json({ booking: b, paymentLinks: links, emails });
 });
 
-app.get('/api/admin/bookings/:id/candidates', authRequired(STAFF_ROLES), (req, res) => {
-  const b = getBooking(Number(req.params.id));
+app.get('/api/admin/bookings/:id/candidates', authRequired(STAFF_ROLES), async (req, res) => {
+  const b = await getBooking(Number(req.params.id));
   if (!b) return res.status(404).json({ error: 'Booking not found' });
-  const workers = db.prepare("SELECT id, name, email, phone, service_areas FROM users WHERE role = 'worker' AND active = 1").all();
+  const workers = await db.all("SELECT id, name, email, phone, service_areas FROM users WHERE role = 'worker' AND active = 1");
   const area = String(b.service_area || '').toLowerCase();
-  const candidates = workers.map(w => {
+  const candidates = (await Promise.all(workers.map(async w => {
     const areas = String(w.service_areas || '').toLowerCase();
-    const conflict = db.prepare(`SELECT booking_code FROM bookings WHERE assigned_worker_id = ? AND cleaning_date = ? AND time_slot = ?
-      AND id != ? AND booking_status NOT IN ('cancelled','completed')`).get(w.id, b.cleaning_date, b.time_slot, b.id);
-    const sameDay = db.prepare(`SELECT COUNT(*) AS c FROM bookings WHERE assigned_worker_id = ? AND cleaning_date = ?
-      AND id != ? AND booking_status != 'cancelled'`).get(w.id, b.cleaning_date, b.id).c;
-    const week = db.prepare(`SELECT COUNT(*) AS c FROM bookings WHERE assigned_worker_id = ? AND booking_status IN ('assigned','in_progress','confirmed')
-      AND cleaning_date BETWEEN date(?, '-3 days') AND date(?, '+3 days')`).get(w.id, b.cleaning_date, b.cleaning_date).c;
+    const [conflict, sameDayRow, weekRow] = await Promise.all([
+      db.get(`SELECT booking_code FROM bookings WHERE assigned_worker_id = ? AND cleaning_date = ? AND time_slot = ?
+        AND id != ? AND booking_status NOT IN ('cancelled','completed')`, w.id, b.cleaning_date, b.time_slot, b.id),
+      db.get(`SELECT COUNT(*) AS c FROM bookings WHERE assigned_worker_id = ? AND cleaning_date = ?
+        AND id != ? AND booking_status != 'cancelled'`, w.id, b.cleaning_date, b.id),
+      db.get(`SELECT COUNT(*) AS c FROM bookings WHERE assigned_worker_id = ? AND booking_status IN ('assigned','in_progress','confirmed')
+        AND cleaning_date BETWEEN date(?, '-3 days') AND date(?, '+3 days')`, w.id, b.cleaning_date, b.cleaning_date),
+    ]);
+    const sameDay = Number(sameDayRow.c);
+    const week = Number(weekRow.c);
     const areaMatch = !area || areas.includes(area) || areas.includes('all');
     let score = 100;
     if (conflict) score -= 100;
     if (!areaMatch) score -= 30;
     score -= sameDay * 10 + week * 2;
     return { ...w, areaMatch, conflict: conflict ? conflict.booking_code : null, sameDay, week, score, current: b.assigned_worker_id === w.id };
-  }).sort((a, z) => z.score - a.score);
+  }))).sort((a, z) => z.score - a.score);
   res.json({ candidates });
 });
 
 app.patch('/api/admin/bookings/:id/assign', authRequired(STAFF_ROLES), async (req, res) => {
-  const b = getBooking(Number(req.params.id));
+  const b = await getBooking(Number(req.params.id));
   if (!b) return res.status(404).json({ error: 'Booking not found' });
   const workerId = req.body && req.body.worker_id ? Number(req.body.worker_id) : null;
 
   if (!workerId) {
-    db.prepare("UPDATE bookings SET assigned_worker_id = NULL, booking_status = CASE WHEN booking_status = 'assigned' THEN 'confirmed' ELSE booking_status END WHERE id = ?").run(b.id);
-    postMessage({ threadType: 'booking', bookingId: b.id, sender: req.user, body: `Unassigned ${b.worker_name || 'the worker'} from this job.` });
+    await db.run("UPDATE bookings SET assigned_worker_id = NULL, booking_status = CASE WHEN booking_status = 'assigned' THEN 'confirmed' ELSE booking_status END WHERE id = ?", b.id);
+    await postMessage({ threadType: 'booking', bookingId: b.id, sender: req.user, body: `Unassigned ${b.worker_name || 'the worker'} from this job.` });
     auditLog(req, req.user, 'worker_unassigned', b.booking_code);
-    return res.json({ success: true, booking: getBooking(b.id) });
+    return res.json({ success: true, booking: await getBooking(b.id) });
   }
-  const worker = db.prepare("SELECT * FROM users WHERE id = ? AND role = 'worker' AND active = 1").get(workerId);
+  const worker = await db.get("SELECT * FROM users WHERE id = ? AND role = 'worker' AND active = 1", workerId);
   if (!worker) return res.status(404).json({ error: 'Active worker not found' });
 
-  db.prepare(`UPDATE bookings SET assigned_worker_id = ?,
-    booking_status = CASE WHEN booking_status IN ('pending','confirmed') THEN 'assigned' ELSE booking_status END WHERE id = ?`).run(worker.id, b.id);
-  const updated = getBooking(b.id);
+  await db.run(`UPDATE bookings SET assigned_worker_id = ?,
+    booking_status = CASE WHEN booking_status IN ('pending','confirmed') THEN 'assigned' ELSE booking_status END WHERE id = ?`, worker.id, b.id);
+  const updated = await getBooking(b.id);
   const note = String((req.body && req.body.note) || '').trim();
-  postMessage({ threadType: 'booking', bookingId: b.id, sender: req.user, body: `Assigned ${worker.name} to this job.${note ? '\n\nNote: ' + note : ''}` });
+  await postMessage({ threadType: 'booking', bookingId: b.id, sender: req.user, body: `Assigned ${worker.name} to this job.${note ? '\n\nNote: ' + note : ''}` });
   if (req.body.notify !== false) await mailer.sendWorkerAssignment(updated, worker);
   auditLog(req, req.user, 'worker_assigned', b.booking_code, `Worker: ${worker.name}`);
   res.json({ success: true, booking: updated });
 });
 
-app.patch('/api/admin/bookings/:id/status', authRequired(), (req, res) => {
-  const b = getBooking(Number(req.params.id));
+app.patch('/api/admin/bookings/:id/status', authRequired(), async (req, res) => {
+  const b = await getBooking(Number(req.params.id));
   if (!b) return res.status(404).json({ error: 'Booking not found' });
   const status = String((req.body || {}).booking_status || '');
   const allowed = req.user.role === 'worker' ? ['in_progress', 'completed'] : ['pending', 'confirmed', 'assigned', 'in_progress', 'completed', 'cancelled'];
@@ -1373,29 +1405,28 @@ app.patch('/api/admin/bookings/:id/status', authRequired(), (req, res) => {
     return res.status(400).json({ error: `This job is already ${b.booking_status}. Contact the office if it needs to change.` });
   }
   if (status === b.booking_status) return res.json({ success: true, booking: b });
-  // completed_at starts the clock for the automatic thank-you / rebook emails
-  db.prepare('UPDATE bookings SET booking_status = ?, completed_at = ? WHERE id = ?')
-    .run(status, status === 'completed' ? new Date().toISOString() : '', b.id);
-  postMessage({ threadType: 'booking', bookingId: b.id, sender: req.user, body: `Status changed to “${status.replace('_', ' ')}”.` });
+  await db.run('UPDATE bookings SET booking_status = ?, completed_at = ? WHERE id = ?',
+    status, status === 'completed' ? new Date().toISOString() : '', b.id);
+  await postMessage({ threadType: 'booking', bookingId: b.id, sender: req.user, body: `Status changed to “${status.replace('_', ' ')}”.` });
   auditLog(req, req.user, 'booking_status_changed', b.booking_code, status);
-  res.json({ success: true, booking: getBooking(b.id) });
+  res.json({ success: true, booking: await getBooking(b.id) });
 });
 
-app.patch('/api/admin/bookings/:id/price', authRequired(STAFF_ROLES), (req, res) => {
-  const b = getBooking(Number(req.params.id));
+app.patch('/api/admin/bookings/:id/price', authRequired(STAFF_ROLES), async (req, res) => {
+  const b = await getBooking(Number(req.params.id));
   if (!b) return res.status(404).json({ error: 'Booking not found' });
   if (b.payment_status === 'paid') return res.status(400).json({ error: 'Booking is already paid' });
   const dollars = Number((req.body || {}).price);
   if (!Number.isFinite(dollars) || dollars <= 0 || dollars > 100000) return res.status(400).json({ error: 'Enter a valid price' });
-  db.prepare('UPDATE bookings SET price_cents = ? WHERE id = ?').run(Math.round(dollars * 100), b.id);
-  postMessage({ threadType: 'booking', bookingId: b.id, sender: req.user, body: `Price set to $${dollars.toFixed(2)}.` });
+  await db.run('UPDATE bookings SET price_cents = ? WHERE id = ?', Math.round(dollars * 100), b.id);
+  await postMessage({ threadType: 'booking', bookingId: b.id, sender: req.user, body: `Price set to $${dollars.toFixed(2)}.` });
   auditLog(req, req.user, 'quote_price_set', b.booking_code, `$${dollars.toFixed(2)}`);
-  res.json({ success: true, booking: getBooking(b.id) });
+  res.json({ success: true, booking: await getBooking(b.id) });
 });
 
 app.post('/api/admin/bookings/:id/payment-request', authRequired(STAFF_ROLES), async (req, res) => {
   try {
-    const b = getBooking(Number(req.params.id));
+    const b = await getBooking(Number(req.params.id));
     if (!b) return res.status(404).json({ error: 'Booking not found' });
     if (b.payment_status === 'paid') return res.status(400).json({ error: 'Booking is already paid' });
     if (!b.price_cents) return res.status(400).json({ error: 'Set a price first' });
@@ -1413,7 +1444,7 @@ app.post('/api/admin/bookings/:id/payment-request', authRequired(STAFF_ROLES), a
         success_url: `${BASE_URL}/book.html?status=success&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${BASE_URL}/book.html?status=cancelled&code=${b.booking_code}`,
       });
-      db.prepare("UPDATE bookings SET stripe_session_id = ?, payment_method = 'stripe' WHERE id = ?").run(session.id, b.id);
+      await db.run("UPDATE bookings SET stripe_session_id = ?, payment_method = 'stripe' WHERE id = ?", session.id, b.id);
       payUrl = session.url;
     } else if (method === 'stripe_link') {
       payUrl = stripeLinkFor(b);
@@ -1421,10 +1452,10 @@ app.post('/api/admin/bookings/:id/payment-request', authRequired(STAFF_ROLES), a
       payUrl = paypalLinkFor(b);
     }
     if (!payUrl) return res.status(400).json({ error: `No ${METHOD_LABELS[method] || method} link is set up for this service. Add one in Payments settings.` });
-    if (method !== 'stripe') db.prepare('UPDATE bookings SET payment_method = ? WHERE id = ?').run(method, b.id);
+    if (method !== 'stripe') await db.run('UPDATE bookings SET payment_method = ? WHERE id = ?', method, b.id);
 
-    const status = await mailer.sendPaymentRequest(getBooking(b.id), payUrl, String((req.body || {}).note || '').trim());
-    postMessage({ threadType: 'booking', bookingId: b.id, audience: 'customer', sender: req.user, body: `Sent ${METHOD_LABELS[method]} payment request ($${(b.price_cents / 100).toFixed(2)}) to customer.`, emailStatus: status });
+    const status = await mailer.sendPaymentRequest(await getBooking(b.id), payUrl, String((req.body || {}).note || '').trim());
+    await postMessage({ threadType: 'booking', bookingId: b.id, audience: 'customer', sender: req.user, body: `Sent ${METHOD_LABELS[method]} payment request ($${(b.price_cents / 100).toFixed(2)}) to customer.`, emailStatus: status });
     auditLog(req, req.user, 'payment_request_sent', b.booking_code, METHOD_LABELS[method]);
     res.json({ success: true, payUrl, emailStatus: status });
   } catch (err) {
@@ -1433,23 +1464,23 @@ app.post('/api/admin/bookings/:id/payment-request', authRequired(STAFF_ROLES), a
 });
 
 app.post('/api/admin/bookings/:id/mark-paid', authRequired(STAFF_ROLES), async (req, res) => {
-  const b = getBooking(Number(req.params.id));
+  const b = await getBooking(Number(req.params.id));
   if (!b) return res.status(404).json({ error: 'Booking not found' });
   if (!b.price_cents) return res.status(400).json({ error: 'Set a price first' });
   if (b.payment_status === 'paid') return res.status(400).json({ error: 'Booking is already marked paid' });
   const method = String((req.body || {}).method || b.payment_method || 'other');
   if (!Object.prototype.hasOwnProperty.call(METHOD_LABELS, method)) return res.status(400).json({ error: 'Invalid payment method' });
   const updated = await markPaid(b, method, String((req.body || {}).reference || '').trim());
-  postMessage({ threadType: 'booking', bookingId: b.id, sender: req.user, body: `Marked as paid via ${METHOD_LABELS[method] || method}.` });
+  await postMessage({ threadType: 'booking', bookingId: b.id, sender: req.user, body: `Marked as paid via ${METHOD_LABELS[method] || method}.` });
   auditLog(req, req.user, 'booking_marked_paid', b.booking_code, `${METHOD_LABELS[method] || method}`);
   res.json({ success: true, booking: updated });
 });
 
 app.post('/api/admin/bookings/:id/remind', authRequired(STAFF_ROLES), async (req, res) => {
-  const b = getBooking(Number(req.params.id));
+  const b = await getBooking(Number(req.params.id));
   if (!b) return res.status(404).json({ error: 'Booking not found' });
   const status = await mailer.sendReminder(b, 'upcoming appointment', b.worker_name);
-  postMessage({ threadType: 'booking', bookingId: b.id, audience: 'customer', sender: req.user, body: 'Sent a reminder email to the customer.', emailStatus: status });
+  await postMessage({ threadType: 'booking', bookingId: b.id, audience: 'customer', sender: req.user, body: 'Sent a reminder email to the customer.', emailStatus: status });
   res.json({ success: true, emailStatus: status });
 });
 
@@ -1465,66 +1496,67 @@ function threadCondition(thread) {
   return null;
 }
 
-function canAccessThread(user, thread) {
+async function canAccessThread(user, thread) {
   if (STAFF_ROLES.includes(user.role)) return true;
   if (thread === 'broadcast') return true;
   const [kind, idStr] = String(thread).split(':');
   if (kind === 'worker') return Number(idStr) === user.id;
   if (kind === 'booking') {
-    const b = db.prepare('SELECT assigned_worker_id FROM bookings WHERE id = ?').get(Number(idStr));
+    const b = await db.get('SELECT assigned_worker_id FROM bookings WHERE id = ?', Number(idStr));
     return Boolean(b && b.assigned_worker_id === user.id);
   }
   return false;
 }
 
-function threadStats(user, thread) {
+async function threadStats(user, thread) {
   const cond = threadCondition(thread);
-  const last = db.prepare(`SELECT m.body, m.sender_name, m.created_at FROM messages m WHERE ${cond.sql} ORDER BY m.id DESC LIMIT 1`).get(...cond.params);
-  const unread = db.prepare(`SELECT COUNT(*) AS c FROM messages m WHERE ${cond.sql}
-    AND (m.sender_id IS NULL OR m.sender_id != ?)
-    AND NOT EXISTS (SELECT 1 FROM message_reads r WHERE r.message_id = m.id AND r.user_id = ?)`).get(...cond.params, user.id, user.id).c;
-  return { last: last || null, unread };
+  const [last, unreadRow] = await Promise.all([
+    db.get(`SELECT m.body, m.sender_name, m.created_at FROM messages m WHERE ${cond.sql} ORDER BY m.id DESC LIMIT 1`, ...cond.params),
+    db.get(`SELECT COUNT(*) AS c FROM messages m WHERE ${cond.sql}
+      AND (m.sender_id IS NULL OR m.sender_id != ?)
+      AND NOT EXISTS (SELECT 1 FROM message_reads r WHERE r.message_id = m.id AND r.user_id = ?)`, ...cond.params, user.id, user.id),
+  ]);
+  return { last: last || null, unread: Number(unreadRow.c) };
 }
 
-function threadsFor(user) {
-  const threads = [];
-  const add = (key, title, subtitle, kind) => threads.push({ key, title, subtitle, kind, ...threadStats(user, key) });
-
-  add('broadcast', 'Team announcements', 'Office → all cleaners', 'broadcast');
+async function threadsFor(user) {
+  const specs = [['broadcast', 'Team announcements', 'Office → all cleaners', 'broadcast']];
   if (STAFF_ROLES.includes(user.role)) {
-    for (const w of db.prepare("SELECT id, name, service_areas FROM users WHERE role = 'worker' AND active = 1 ORDER BY name").all()) {
-      add(`worker:${w.id}`, w.name, w.service_areas, 'worker');
-    }
-    for (const b of db.prepare(`SELECT DISTINCT b.id, b.booking_code, b.customer_name, b.cleaning_date FROM bookings b
-      JOIN messages m ON m.booking_id = b.id AND m.thread_type = 'booking' ORDER BY b.cleaning_date DESC LIMIT 60`).all()) {
-      add(`booking:${b.id}`, `${b.booking_code} · ${b.customer_name}`, `Job on ${b.cleaning_date}`, 'booking');
-    }
+    const [workers, bks] = await Promise.all([
+      db.all("SELECT id, name, service_areas FROM users WHERE role = 'worker' AND active = 1 ORDER BY name"),
+      db.all(`SELECT DISTINCT b.id, b.booking_code, b.customer_name, b.cleaning_date FROM bookings b
+        JOIN messages m ON m.booking_id = b.id AND m.thread_type = 'booking' ORDER BY b.cleaning_date DESC LIMIT 60`),
+    ]);
+    for (const w of workers) specs.push([`worker:${w.id}`, w.name, w.service_areas, 'worker']);
+    for (const b of bks) specs.push([`booking:${b.id}`, `${b.booking_code} · ${b.customer_name}`, `Job on ${b.cleaning_date}`, 'booking']);
   } else {
-    add(`worker:${user.id}`, 'Office (Admin team)', 'Message the Bovic office', 'worker');
-    for (const b of db.prepare(`SELECT id, booking_code, customer_name, cleaning_date FROM bookings
-      WHERE assigned_worker_id = ? ORDER BY cleaning_date DESC LIMIT 60`).all(user.id)) {
-      add(`booking:${b.id}`, `${b.booking_code} · ${b.customer_name}`, `Job on ${b.cleaning_date}`, 'booking');
-    }
+    specs.push([`worker:${user.id}`, 'Office (Admin team)', 'Message the Bovic office', 'worker']);
+    const bks = await db.all(`SELECT id, booking_code, customer_name, cleaning_date FROM bookings
+      WHERE assigned_worker_id = ? ORDER BY cleaning_date DESC LIMIT 60`, user.id);
+    for (const b of bks) specs.push([`booking:${b.id}`, `${b.booking_code} · ${b.customer_name}`, `Job on ${b.cleaning_date}`, 'booking']);
   }
-  return threads;
+  return Promise.all(specs.map(async ([key, title, subtitle, kind]) => ({ key, title, subtitle, kind, ...(await threadStats(user, key)) })));
 }
 
-app.get('/api/messages/threads', authRequired(), (req, res) => {
-  const threads = threadsFor(req.user).sort((a, z) => {
+app.get('/api/messages/threads', authRequired(), async (req, res) => {
+  const threads = (await threadsFor(req.user)).sort((a, z) => {
     if (z.unread !== a.unread) return z.unread - a.unread;
     return String((z.last && z.last.created_at) || '').localeCompare(String((a.last && a.last.created_at) || ''));
   });
   res.json({ threads });
 });
 
-app.get('/api/messages', authRequired(), (req, res) => {
+app.get('/api/messages', authRequired(), async (req, res) => {
   const thread = String(req.query.thread || '');
   const cond = threadCondition(thread);
-  if (!cond || !canAccessThread(req.user, thread)) return res.status(403).json({ error: 'Conversation not available' });
-  const rows = db.prepare(`SELECT m.id, m.audience, m.sender_id, m.sender_name, m.sender_role, m.body, m.email_status, m.created_at
-    FROM messages m WHERE ${cond.sql} ORDER BY m.id ASC LIMIT 300`).all(...cond.params);
-  const mark = db.prepare('INSERT OR IGNORE INTO message_reads (message_id, user_id) VALUES (?, ?)');
-  for (const r of rows) if (r.sender_id !== req.user.id) mark.run(r.id, req.user.id);
+  if (!cond || !(await canAccessThread(req.user, thread))) return res.status(403).json({ error: 'Conversation not available' });
+  const rows = await db.all(`SELECT m.id, m.audience, m.sender_id, m.sender_name, m.sender_role, m.body, m.email_status, m.created_at
+    FROM messages m WHERE ${cond.sql} ORDER BY m.id ASC LIMIT 300`, ...cond.params);
+  for (const r of rows) {
+    if (r.sender_id !== req.user.id) {
+      await db.run('INSERT OR IGNORE INTO message_reads (message_id, user_id) VALUES (?, ?)', r.id, req.user.id);
+    }
+  }
   res.json({ messages: rows });
 });
 
@@ -1533,7 +1565,7 @@ app.post('/api/messages', authRequired(), async (req, res) => {
   const text = String(body || '').trim().slice(0, 4000);
   if (!text) return res.status(400).json({ error: 'Message is empty' });
   const cond = threadCondition(thread);
-  if (!cond || !canAccessThread(req.user, thread)) return res.status(403).json({ error: 'Conversation not available' });
+  if (!cond || !(await canAccessThread(req.user, thread))) return res.status(403).json({ error: 'Conversation not available' });
   const isStaff = STAFF_ROLES.includes(req.user.role);
   const [kind, idStr] = String(thread).split(':');
   const id = Number(idStr);
@@ -1542,24 +1574,24 @@ app.post('/api/messages', authRequired(), async (req, res) => {
   if (thread === 'broadcast') {
     if (!isStaff) return res.status(403).json({ error: 'Only the office can post announcements' });
     if (notify_email) {
-      for (const w of db.prepare("SELECT email FROM users WHERE role = 'worker' AND active = 1").all()) {
+      for (const w of await db.all("SELECT email FROM users WHERE role = 'worker' AND active = 1")) {
         await mailer.sendStaffNotification({ to: w.email, subject: 'Team announcement from Bovic Premier', title: 'Team announcement', text });
       }
       emailStatus = 'emailed_team';
     }
-    postMessage({ threadType: 'broadcast', sender: req.user, body: text, emailStatus });
+    await postMessage({ threadType: 'broadcast', sender: req.user, body: text, emailStatus });
   } else if (kind === 'worker') {
     if (notify_email !== false) {
       if (isStaff) {
-        const w = db.prepare('SELECT email FROM users WHERE id = ?').get(id);
+        const w = await db.get('SELECT email FROM users WHERE id = ?', id);
         if (w) emailStatus = await mailer.sendStaffNotification({ to: w.email, subject: `New message from ${req.user.name} (Bovic office)`, title: `Message from ${req.user.name}`, text });
       } else {
         emailStatus = await mailer.sendStaffNotification({ to: process.env.ADMIN_ALERT_EMAIL || 'booking@boviccleaning.com', subject: `New message from cleaner ${req.user.name}`, title: `Message from ${req.user.name}`, text });
       }
     }
-    postMessage({ threadType: 'direct', recipientId: id, sender: req.user, body: text, emailStatus });
+    await postMessage({ threadType: 'direct', recipientId: id, sender: req.user, body: text, emailStatus });
   } else {
-    const b = getBooking(id);
+    const b = await getBooking(id);
     if (!b) return res.status(404).json({ error: 'Booking not found' });
     const aud = audience === 'customer' && isStaff ? 'customer' : 'team';
     if (aud === 'customer') {
@@ -1571,7 +1603,7 @@ app.post('/api/messages', authRequired(), async (req, res) => {
         emailStatus = await mailer.sendStaffNotification({ to: process.env.ADMIN_ALERT_EMAIL || 'booking@boviccleaning.com', bookingId: b.id, subject: `${req.user.name} on job ${b.booking_code}`, title: `Job ${b.booking_code} — message from ${req.user.name}`, text });
       }
     }
-    postMessage({ threadType: 'booking', bookingId: b.id, audience: aud, sender: req.user, body: text, emailStatus });
+    await postMessage({ threadType: 'booking', bookingId: b.id, audience: aud, sender: req.user, body: text, emailStatus });
   }
   res.status(201).json({ success: true });
 });
@@ -1579,15 +1611,15 @@ app.post('/api/messages', authRequired(), async (req, res) => {
 // ============================================================
 // USERS (STRICT LEAST PRIVILEGE + PASSWORD ROTATION + SESSION REVOCATION)
 // ============================================================
-app.get('/api/admin/users', authRequired(STAFF_ROLES), (req, res) => {
-  const users = db.prepare(`SELECT u.id, u.name, u.email, u.role, u.phone, u.service_areas, u.active, u.must_change_password, u.created_at,
+app.get('/api/admin/users', authRequired(STAFF_ROLES), async (req, res) => {
+  const users = await db.all(`SELECT u.id, u.name, u.email, u.role, u.phone, u.service_areas, u.active, u.must_change_password, u.created_at,
       (SELECT COUNT(*) FROM bookings b WHERE b.assigned_worker_id = u.id AND b.booking_status IN ('assigned','in_progress','confirmed')) AS open_jobs,
       (SELECT COUNT(*) FROM bookings b WHERE b.assigned_worker_id = u.id AND b.booking_status = 'completed') AS done_jobs
-    FROM users u ORDER BY CASE u.role WHEN 'super_admin' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END, u.name`).all();
+    FROM users u ORDER BY CASE u.role WHEN 'super_admin' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END, u.name`);
   res.json({ users });
 });
 
-app.post('/api/admin/users', authRequired(STAFF_ROLES), (req, res) => {
+app.post('/api/admin/users', authRequired(STAFF_ROLES), async (req, res) => {
   const { name, email, password, role, phone, service_areas } = req.body || {};
   if (!name || !email || !password || !role) return res.status(400).json({ error: 'Name, email, password and role are required' });
   if (!['admin', 'worker'].includes(role)) return res.status(400).json({ error: 'Role must be admin or worker' });
@@ -1597,9 +1629,9 @@ app.post('/api/admin/users', authRequired(STAFF_ROLES), (req, res) => {
 
   const cleanEmail = String(email).trim().toLowerCase();
   try {
-    const info = db.prepare('INSERT INTO users (name, email, password_hash, role, phone, service_areas, must_change_password) VALUES (?, ?, ?, ?, ?, ?, 1)')
-      .run(String(name).trim(), cleanEmail, bcrypt.hashSync(String(password), 12), role,
-        String(phone || '').trim(), String(service_areas || 'Buckhead, Sandy Springs, Roswell, Alpharetta').trim());
+    const info = await db.run('INSERT INTO users (name, email, password_hash, role, phone, service_areas, must_change_password) VALUES (?, ?, ?, ?, ?, ?, 1)',
+      String(name).trim(), cleanEmail, bcrypt.hashSync(String(password), 12), role,
+      String(phone || '').trim(), String(service_areas || 'Buckhead, Sandy Springs, Roswell, Alpharetta').trim());
     auditLog(req, req.user, 'user_created', cleanEmail, `Role: ${role}`);
     res.status(201).json({ id: info.lastInsertRowid, success: true });
   } catch (err) {
@@ -1608,24 +1640,23 @@ app.post('/api/admin/users', authRequired(STAFF_ROLES), (req, res) => {
   }
 });
 
-app.patch('/api/admin/users/:id', authRequired(STAFF_ROLES), (req, res) => {
-  const target = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(req.params.id));
+app.patch('/api/admin/users/:id', authRequired(STAFF_ROLES), async (req, res) => {
+  const target = await db.get('SELECT * FROM users WHERE id = ?', Number(req.params.id));
   if (!target) return res.status(404).json({ error: 'User not found' });
   if (target.role !== 'worker' && req.user.role !== 'super_admin' && target.id !== req.user.id) {
     return res.status(403).json({ error: 'Only the Super Admin can edit admin accounts' });
   }
   const { name, phone, service_areas, password } = req.body || {};
-  // Validate everything first so a rejected password doesn't leave a half-saved update
   if (password) {
     const pwErr = validatePasswordStrength(password);
     if (pwErr) return res.status(400).json({ error: pwErr });
   }
-  db.prepare('UPDATE users SET name = ?, phone = ?, service_areas = ? WHERE id = ?').run(
+  await db.run('UPDATE users SET name = ?, phone = ?, service_areas = ? WHERE id = ?',
     String(name || target.name).trim().slice(0, 120), String(phone ?? target.phone).trim().slice(0, 40),
     String(service_areas ?? target.service_areas).trim().slice(0, 300), target.id);
   if (password) {
-    db.prepare('UPDATE users SET password_hash = ?, must_change_password = 1, token_version = token_version + 1 WHERE id = ?')
-      .run(bcrypt.hashSync(String(password), 12), target.id);
+    await db.run('UPDATE users SET password_hash = ?, must_change_password = 1, token_version = token_version + 1 WHERE id = ?',
+      bcrypt.hashSync(String(password), 12), target.id);
     auditLog(req, req.user, 'user_password_reset', target.email);
   } else {
     auditLog(req, req.user, 'user_updated', target.email);
@@ -1633,21 +1664,21 @@ app.patch('/api/admin/users/:id', authRequired(STAFF_ROLES), (req, res) => {
   res.json({ success: true });
 });
 
-app.patch('/api/admin/users/:id/toggle', authRequired(STAFF_ROLES), (req, res) => {
-  const target = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(req.params.id));
+app.patch('/api/admin/users/:id/toggle', authRequired(STAFF_ROLES), async (req, res) => {
+  const target = await db.get('SELECT * FROM users WHERE id = ?', Number(req.params.id));
   if (!target) return res.status(404).json({ error: 'User not found' });
   if (target.role === 'super_admin') return res.status(403).json({ error: 'The Super Admin cannot be deactivated' });
   if (target.role === 'admin' && req.user.role !== 'super_admin') return res.status(403).json({ error: 'Only the Super Admin can manage admins' });
-  db.prepare('UPDATE users SET active = CASE WHEN active = 1 THEN 0 ELSE 1 END, token_version = token_version + 1 WHERE id = ?').run(target.id);
+  await db.run('UPDATE users SET active = CASE WHEN active = 1 THEN 0 ELSE 1 END, token_version = token_version + 1 WHERE id = ?', target.id);
   auditLog(req, req.user, target.active ? 'user_disabled' : 'user_enabled', target.email);
   res.json({ success: true });
 });
 
-app.delete('/api/admin/users/:id', authRequired(['super_admin']), (req, res) => {
-  const target = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(req.params.id));
+app.delete('/api/admin/users/:id', authRequired(['super_admin']), async (req, res) => {
+  const target = await db.get('SELECT * FROM users WHERE id = ?', Number(req.params.id));
   if (!target) return res.status(404).json({ error: 'User not found' });
   if (target.role === 'super_admin') return res.status(403).json({ error: 'The Super Admin cannot be deleted' });
-  db.prepare('DELETE FROM users WHERE id = ?').run(target.id);
+  await db.run('DELETE FROM users WHERE id = ?', target.id);
   auditLog(req, req.user, 'user_deleted', target.email, `Role: ${target.role}`);
   res.json({ success: true });
 });
@@ -1655,31 +1686,31 @@ app.delete('/api/admin/users/:id', authRequired(['super_admin']), (req, res) => 
 // ============================================================
 // CALENDAR BLOCKS, EMAIL LOGS, PAYMENT SETTINGS, SECURITY & AUDIT
 // ============================================================
-app.get('/api/admin/blocked-dates', authRequired(STAFF_ROLES), (req, res) => {
-  res.json({ blockedDates: db.prepare('SELECT * FROM blocked_dates ORDER BY date').all() });
+app.get('/api/admin/blocked-dates', authRequired(STAFF_ROLES), async (req, res) => {
+  res.json({ blockedDates: await db.all('SELECT * FROM blocked_dates ORDER BY date') });
 });
-app.post('/api/admin/blocked-dates', authRequired(STAFF_ROLES), (req, res) => {
+app.post('/api/admin/blocked-dates', authRequired(STAFF_ROLES), async (req, res) => {
   const { date, reason } = req.body || {};
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'Valid date required' });
   try {
-    db.prepare('INSERT INTO blocked_dates (date, reason, created_by) VALUES (?, ?, ?)').run(date, String(reason || 'Unavailable').trim(), req.user.id);
+    await db.run('INSERT INTO blocked_dates (date, reason, created_by) VALUES (?, ?, ?)', date, String(reason || 'Unavailable').trim(), req.user.id);
     auditLog(req, req.user, 'date_blocked', date, reason);
     res.status(201).json({ success: true });
   } catch { res.status(409).json({ error: 'That date is already blocked' }); }
 });
-app.delete('/api/admin/blocked-dates/:id', authRequired(STAFF_ROLES), (req, res) => {
-  db.prepare('DELETE FROM blocked_dates WHERE id = ?').run(Number(req.params.id));
+app.delete('/api/admin/blocked-dates/:id', authRequired(STAFF_ROLES), async (req, res) => {
+  await db.run('DELETE FROM blocked_dates WHERE id = ?', Number(req.params.id));
   auditLog(req, req.user, 'date_unblocked', String(req.params.id));
   res.json({ success: true });
 });
 
-app.get('/api/admin/email-logs', authRequired(STAFF_ROLES), (req, res) => {
-  res.json({ logs: db.prepare('SELECT * FROM email_logs ORDER BY id DESC LIMIT 150').all() });
+app.get('/api/admin/email-logs', authRequired(STAFF_ROLES), async (req, res) => {
+  res.json({ logs: await db.all('SELECT * FROM email_logs ORDER BY id DESC LIMIT 150') });
 });
 
-app.get('/api/admin/audit-logs', authRequired(['super_admin']), (req, res) => {
+app.get('/api/admin/audit-logs', authRequired(['super_admin']), async (req, res) => {
   res.json({
-    logs: db.prepare('SELECT * FROM audit_logs ORDER BY id DESC LIMIT 150').all(),
+    logs: await db.all('SELECT * FROM audit_logs ORDER BY id DESC LIMIT 150'),
     security: {
       httpOnlyCookie: true,
       sameSiteStrict: true,
@@ -1703,7 +1734,7 @@ app.get('/api/admin/settings/payments', authRequired(['super_admin']), (req, res
   });
 });
 
-app.put('/api/admin/settings/payments', authRequired(['super_admin']), (req, res) => {
+app.put('/api/admin/settings/payments', authRequired(['super_admin']), async (req, res) => {
   const input = req.body || {};
   const validKeys = new Set(catalog.pricedItems().map(i => i.key));
   const cleanMap = (map, kind) => {
@@ -1732,7 +1763,7 @@ app.put('/api/admin/settings/payments', authRequired(['super_admin']), (req, res
       pay_later_enabled: Boolean(input.pay_later_enabled),
       pay_later_label: String(input.pay_later_label || DEFAULT_PAYMENTS.pay_later_label).trim().slice(0, 140),
     };
-    setSetting('payments', next);
+    await setSetting('payments', next);
     auditLog(req, req.user, 'payment_settings_updated', 'payments', availableMethods(next).methods.map(m => m.key).join(','));
     res.json({ success: true, settings: next, activeMethods: availableMethods().methods.map(m => m.key) });
   } catch (err) {
@@ -1771,7 +1802,7 @@ app.post('/api/admin/followups/test', authRequired(STAFF_ROLES), async (req, res
   res.json({ success: true, to: req.user.email, statuses: [a, b] });
 });
 
-app.put('/api/admin/site', authRequired(STAFF_ROLES), (req, res) => {
+app.put('/api/admin/site', authRequired(STAFF_ROLES), async (req, res) => {
   const input = req.body || {};
   const cur = getSite();
 
@@ -1905,7 +1936,7 @@ app.put('/api/admin/site', authRequired(STAFF_ROLES), (req, res) => {
   for (const pk of Object.keys(DEFAULT_SITE.policies)) {
     nextSite.policies[pk] = cleanStr(sIn.policies && sIn.policies[pk], cur.policies[pk], 4000);
   }
-  setSetting('site', nextSite);
+  await setSetting('site', nextSite);
 
   if (input.pricingOverrides && typeof input.pricingOverrides === 'object') {
     const validKeys = new Set(catalog.pricedItems().map(i => i.key));
@@ -1917,7 +1948,8 @@ app.put('/api/admin/site', authRequired(STAFF_ROLES), (req, res) => {
         cleanPrices[k] = Math.round(num * 100);
       }
     }
-    setSetting('pricing_overrides', cleanPrices);
+    await setSetting('pricing_overrides', cleanPrices);
+    catalog.setOverridesCache(cleanPrices);
   }
 
   auditLog(req, req.user, 'website_content_updated', 'site_cms');
@@ -1936,12 +1968,11 @@ function detectImageType(buf) {
 const CUSTOM_LOGOS_DIR = path.join(db.DATA_DIR, 'logos');
 if (!fs.existsSync(CUSTOM_LOGOS_DIR)) fs.mkdirSync(CUSTOM_LOGOS_DIR, { recursive: true });
 
-app.post('/api/admin/site/logo', authRequired(STAFF_ROLES), (req, res) => {
+app.post('/api/admin/site/logo', authRequired(STAFF_ROLES), async (req, res) => {
   const { variant, dataUrl } = req.body || {};
   if (!['logo-1', 'logo-2', 'logo-3'].includes(variant)) {
     return res.status(400).json({ error: 'Choose logo-1, logo-2, or logo-3' });
   }
-  // Logos are stored and referenced site-wide as logo-N.png, so only real PNG files are accepted
   const m = String(dataUrl || '').match(/^data:image\/png;base64,([A-Za-z0-9+/=]+)$/);
   if (!m) return res.status(400).json({ error: 'Please upload a PNG image (logos need PNG for transparency)' });
 
@@ -1949,24 +1980,26 @@ app.post('/api/admin/site/logo', authRequired(STAFF_ROLES), (req, res) => {
   if (buf.length > 2 * 1024 * 1024) return res.status(400).json({ error: 'Logo file must be under 2 MB' });
   if (detectImageType(buf) !== 'png') return res.status(400).json({ error: 'That file is not a valid PNG image (SVG is blocked for security)' });
 
-  fs.writeFileSync(path.join(CUSTOM_LOGOS_DIR, `${variant}.png`), buf);
+  await setSetting('logo_' + variant, { data: m[1] });
+  try { fs.writeFileSync(path.join(CUSTOM_LOGOS_DIR, `${variant}.png`), buf); } catch {}
   const dest = path.resolve(__dirname, '..', 'assets', 'images', 'resources', `${variant}.png`);
   try { fs.writeFileSync(dest, buf); } catch {}
 
   const cur = getSite();
   cur.logo_version = Date.now();
-  setSetting('site', cur);
+  await setSetting('site', cur);
   auditLog(req, req.user, 'logo_uploaded', variant, `${buf.length} bytes`);
   res.json({ success: true, logo_version: cur.logo_version, src: `assets/images/resources/${variant}.png?v=${cur.logo_version}` });
 });
 
-app.post('/api/admin/site/logo/reset', authRequired(STAFF_ROLES), (req, res) => {
+app.post('/api/admin/site/logo/reset', authRequired(STAFF_ROLES), async (req, res) => {
   const { variant } = req.body || {};
   if (!['logo-1', 'logo-2', 'logo-3'].includes(variant)) {
     return res.status(400).json({ error: 'Invalid logo variant' });
   }
+  await deleteSetting('logo_' + variant);
   const customFile = path.join(CUSTOM_LOGOS_DIR, `${variant}.png`);
-  if (fs.existsSync(customFile)) fs.unlinkSync(customFile);
+  try { if (fs.existsSync(customFile)) fs.unlinkSync(customFile); } catch {}
   const src = path.join(__dirname, 'data', 'default-logos', `${variant}.png`);
   const dest = path.resolve(__dirname, '..', 'assets', 'images', 'resources', `${variant}.png`);
   if (!fs.existsSync(src)) return res.status(404).json({ error: 'Default logo backup not found' });
@@ -1974,7 +2007,7 @@ app.post('/api/admin/site/logo/reset', authRequired(STAFF_ROLES), (req, res) => 
 
   const cur = getSite();
   cur.logo_version = Date.now();
-  setSetting('site', cur);
+  await setSetting('site', cur);
   auditLog(req, req.user, 'logo_reset', variant);
   res.json({ success: true, logo_version: cur.logo_version, src: `assets/images/resources/${variant}.png?v=${cur.logo_version}` });
 });
@@ -1993,31 +2026,26 @@ function apptTime(dateStr, slot) {
 }
 
 async function runReminderSweep() {
-  const rows = db.prepare(`SELECT b.*, u.name AS worker_name FROM bookings b LEFT JOIN users u ON b.assigned_worker_id = u.id
+  const rows = await db.all(`SELECT b.*, u.name AS worker_name FROM bookings b LEFT JOIN users u ON b.assigned_worker_id = u.id
     WHERE b.booking_status IN ('confirmed','assigned') AND (b.reminder_24h_sent = 0 OR b.reminder_2h_sent = 0)
-      AND b.cleaning_date >= ?`).all(businessToday(Date.now() - 86400000));
+      AND b.cleaning_date >= ?`, businessToday(Date.now() - 86400000));
   for (const b of rows) {
     const hrs = (apptTime(b.cleaning_date, b.time_slot) - Date.now()) / 3600000;
     if (hrs > 2 && hrs <= 24 && !b.reminder_24h_sent) {
       await mailer.sendReminder(b, '24 hours', b.worker_name);
-      db.prepare('UPDATE bookings SET reminder_24h_sent = 1 WHERE id = ?').run(b.id);
+      await db.run('UPDATE bookings SET reminder_24h_sent = 1 WHERE id = ?', b.id);
     } else if (hrs > 0 && hrs <= 2 && !b.reminder_24h_sent) {
-      // Booked at the last minute: skip the 24h email so the customer doesn't get two at once
-      db.prepare('UPDATE bookings SET reminder_24h_sent = 1 WHERE id = ?').run(b.id);
+      await db.run('UPDATE bookings SET reminder_24h_sent = 1 WHERE id = ?', b.id);
     }
     if (hrs > 0 && hrs <= 2 && !b.reminder_2h_sent) {
       await mailer.sendReminder(b, '2 hours', b.worker_name);
-      db.prepare('UPDATE bookings SET reminder_2h_sent = 1 WHERE id = ?').run(b.id);
+      await db.run('UPDATE bookings SET reminder_2h_sent = 1 WHERE id = ?', b.id);
     }
   }
 }
-cron.schedule('*/15 * * * *', () => runReminderSweep().catch(e => console.error('[Reminder Cron]', e)));
 
-// ============================================================
-// AUTOMATIC FOLLOW-UP EMAILS (after a job is marked completed)
-// ============================================================
-const FOLLOWUP_SEND_HOURS = [9, 19];   // only email customers 9:00–18:59 business time
-const FOLLOWUP_BATCH = 25;             // max emails per type per sweep
+const FOLLOWUP_SEND_HOURS = [9, 19];
+const FOLLOWUP_BATCH = 25;
 
 function normEmail(e) { return String(e || '').trim().toLowerCase(); }
 function unsubToken(email) {
@@ -2031,8 +2059,8 @@ function validUnsub(email, token) {
   const b = Buffer.from(unsubToken(email));
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
-function isOptedOut(email) {
-  return Boolean(db.prepare('SELECT 1 FROM email_optouts WHERE email = ?').get(normEmail(email)));
+async function isOptedOut(email) {
+  return Boolean(await db.get('SELECT 1 FROM email_optouts WHERE email = ?', normEmail(email)));
 }
 function unsubPage(title, body) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
@@ -2041,20 +2069,18 @@ function unsubPage(title, body) {
 <body><div class="c"><h2>${mailer.esc(title)}</h2>${body}</div></body></html>`;
 }
 
-// Link in the email shows a confirm button (so mail scanners that open links don't unsubscribe people).
-app.get('/api/public/unsubscribe', (req, res) => {
+app.get('/api/public/unsubscribe', async (req, res) => {
   const email = normEmail(req.query.e);
   if (!email || !validUnsub(email, req.query.t)) return res.status(400).send(unsubPage('Link not valid', '<p>This unsubscribe link is incomplete. Reply to any of our emails and we\'ll remove you.</p>'));
-  if (isOptedOut(email)) return res.send(unsubPage('You\'re unsubscribed', '<p>You won\'t get follow-up emails from us. Booking confirmations and reminders still arrive.</p><a class="b" href="/index.html">Back to website</a>'));
+  if (await isOptedOut(email)) return res.send(unsubPage('You\'re unsubscribed', '<p>You won\'t get follow-up emails from us. Booking confirmations and reminders still arrive.</p><a class="b" href="/index.html">Back to website</a>'));
   res.send(unsubPage('Stop follow-up emails?', `<p>${mailer.esc(email)} will no longer get thank-you or "time to rebook" emails. Booking confirmations and reminders still arrive.</p>
     <form method="post"><input type="hidden" name="e" value="${mailer.esc(email)}"><input type="hidden" name="t" value="${mailer.esc(req.query.t)}"><button type="submit">Unsubscribe</button></form>`));
 });
-// Form above + one-click unsubscribe from Gmail/Outlook (RFC 8058) both POST here.
-app.post('/api/public/unsubscribe', (req, res) => {
+app.post('/api/public/unsubscribe', async (req, res) => {
   const email = normEmail((req.body && req.body.e) || req.query.e);
   const token = (req.body && req.body.t) || req.query.t;
   if (!email || !validUnsub(email, token)) return res.status(400).send(unsubPage('Link not valid', '<p>Reply to any of our emails and we\'ll remove you.</p>'));
-  db.prepare('INSERT OR IGNORE INTO email_optouts (email) VALUES (?)').run(email);
+  await db.run('INSERT OR IGNORE INTO email_optouts (email) VALUES (?)', email);
   res.send(unsubPage('You\'re unsubscribed', '<p>You won\'t get follow-up emails from us. Booking confirmations and reminders still arrive.</p><a class="b" href="/index.html">Back to website</a>'));
 });
 
@@ -2067,37 +2093,34 @@ async function runFollowupSweep(now = Date.now()) {
   const bookUrl = `${BASE_URL}/book.html`;
   const result = { thanks: 0, rebook: 0 };
 
-  // 1) Thank-you + review request, N hours after the job is marked completed
   if (f.thanks_enabled !== false) {
     const cutoff = new Date(now - (Number(f.thanks_delay_hours) || 3) * 3600000).toISOString();
-    const oldest = new Date(now - 14 * 86400000).toISOString(); // never email about jobs older than 2 weeks
-    const rows = db.prepare(`SELECT * FROM bookings WHERE booking_status = 'completed' AND followup_thanks_sent = 0
-      AND completed_at != '' AND completed_at <= ? AND completed_at >= ? ORDER BY completed_at LIMIT ?`).all(cutoff, oldest, FOLLOWUP_BATCH);
+    const oldest = new Date(now - 14 * 86400000).toISOString();
+    const rows = await db.all(`SELECT * FROM bookings WHERE booking_status = 'completed' AND followup_thanks_sent = 0
+      AND completed_at != '' AND completed_at <= ? AND completed_at >= ? ORDER BY completed_at LIMIT ?`, cutoff, oldest, FOLLOWUP_BATCH);
     for (const b of rows) {
-      db.prepare('UPDATE bookings SET followup_thanks_sent = 1 WHERE id = ?').run(b.id);
-      if (!b.customer_email || isOptedOut(b.customer_email)) continue;
-      // Weekly / every-2-weeks customers: one thank-you a month is plenty
-      const recent = db.prepare(`SELECT 1 FROM email_logs WHERE email_type = 'followup_thanks' AND lower(recipient) = ?
-        AND status IN ('sent','logged_demo') AND sent_at >= datetime('now', '-30 days')`).get(normEmail(b.customer_email));
+      await db.run('UPDATE bookings SET followup_thanks_sent = 1 WHERE id = ?', b.id);
+      if (!b.customer_email || (await isOptedOut(b.customer_email))) continue;
+      const recent = await db.get(`SELECT 1 FROM email_logs WHERE email_type = 'followup_thanks' AND lower(recipient) = ?
+        AND status IN ('sent','logged_demo') AND sent_at >= datetime('now', '-30 days')`, normEmail(b.customer_email));
       if (recent) continue;
       await mailer.sendFollowupThanks(b, { reviewUrl, bookUrl, unsubscribeUrl: unsubscribeUrl(b.customer_email) });
       result.thanks++;
     }
   }
 
-  // 2) "Time for another clean?" for one-time customers who haven't booked again
   if (f.rebook_enabled !== false) {
     const days = Number(f.rebook_days) || 30;
     const dueBy = businessToday(now - days * 86400000);
     const notBefore = businessToday(now - (days + 14) * 86400000);
-    const rows = db.prepare(`SELECT * FROM bookings WHERE booking_status = 'completed' AND followup_rebook_sent = 0
+    const rows = await db.all(`SELECT * FROM bookings WHERE booking_status = 'completed' AND followup_rebook_sent = 0
       AND (frequency_key = 'onetime' OR (frequency_key = '' AND lower(frequency) LIKE 'one%'))
-      AND cleaning_date <= ? AND cleaning_date >= ? ORDER BY cleaning_date LIMIT ?`).all(dueBy, notBefore, FOLLOWUP_BATCH);
+      AND cleaning_date <= ? AND cleaning_date >= ? ORDER BY cleaning_date LIMIT ?`, dueBy, notBefore, FOLLOWUP_BATCH);
     for (const b of rows) {
-      db.prepare('UPDATE bookings SET followup_rebook_sent = 1 WHERE id = ?').run(b.id);
-      if (!b.customer_email || isOptedOut(b.customer_email)) continue;
-      const rebooked = db.prepare(`SELECT 1 FROM bookings WHERE lower(customer_email) = ? AND id != ?
-        AND booking_status != 'cancelled' AND (cleaning_date > ? OR created_at > ?)`).get(normEmail(b.customer_email), b.id, b.cleaning_date, b.created_at);
+      await db.run('UPDATE bookings SET followup_rebook_sent = 1 WHERE id = ?', b.id);
+      if (!b.customer_email || (await isOptedOut(b.customer_email))) continue;
+      const rebooked = await db.get(`SELECT 1 FROM bookings WHERE lower(customer_email) = ? AND id != ?
+        AND booking_status != 'cancelled' AND (cleaning_date > ? OR created_at > ?)`, normEmail(b.customer_email), b.id, b.cleaning_date, b.created_at);
       if (rebooked) continue;
       await mailer.sendFollowupRebook(b, { days, bookUrl, unsubscribeUrl: unsubscribeUrl(b.customer_email), offerText: f.rebook_offer });
       result.rebook++;
@@ -2105,12 +2128,26 @@ async function runFollowupSweep(now = Date.now()) {
   }
   return result;
 }
-cron.schedule('5,35 * * * *', () => runFollowupSweep().catch(e => console.error('[Follow-up Cron]', e)));
 
-app.listen(PORT, () => {
-  console.log(`\nBovic Premier server ready (Hardened Mode)`);
-  console.log(`  Website:      ${BASE_URL}/index.html`);
-  console.log(`  Book online:  ${BASE_URL}/book.html`);
-  console.log(`  Staff portal: ${BASE_URL}/admin.html`);
-  console.log(`  Payments:     ${availableMethods().methods.map(m => m.label).join(', ')}\n`);
+async function startServer() {
+  await db.init();
+  await loadSettingsCache();
+  JWT_SECRET = await resolveJwtSecret();
+  await catalog.init();
+
+  cron.schedule('*/15 * * * *', () => runReminderSweep().catch(e => console.error('[Reminder Cron]', e)));
+  cron.schedule('5,35 * * * *', () => runFollowupSweep().catch(e => console.error('[Follow-up Cron]', e)));
+
+  app.listen(PORT, () => {
+    console.log(`\nBovic Premier server ready (Hardened Mode · DB=${db.isTurso ? 'Turso' : 'Local SQLite'})`);
+    console.log(`  Website:      ${BASE_URL}/index.html`);
+    console.log(`  Book online:  ${BASE_URL}/book.html`);
+    console.log(`  Staff portal: ${BASE_URL}/admin.html`);
+    console.log(`  Payments:     ${availableMethods().methods.map(m => m.label).join(', ')}\n`);
+  });
+}
+
+startServer().catch(err => {
+  console.error('[Fatal Startup Error]', err);
+  process.exit(1);
 });

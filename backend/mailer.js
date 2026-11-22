@@ -127,10 +127,10 @@ async function sendEmail({ bookingId = null, to, emailType, subject, html, textP
     console.log(`[Email Demo Log] To: ${to} | Subject: ${subject}`);
   }
 
-  db.prepare(`
+  await db.run(`
     INSERT INTO email_logs (booking_id, recipient, email_type, subject, body_preview, status)
     VALUES (?, ?, ?, ?, ?, ?)
-  `).run(bookingId, to, emailType, subject, String(textPreview || subject).slice(0, 300), status);
+  `, bookingId, to, emailType, subject, String(textPreview || subject).slice(0, 300), status);
 
   return status;
 }

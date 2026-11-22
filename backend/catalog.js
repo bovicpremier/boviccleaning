@@ -69,13 +69,24 @@ const FREQ_LABELS = {
   onetime: 'One-time',
 };
 
-function getOverrides() {
+let cachedOverrides = {};
+
+async function init() {
   try {
-    const row = db.prepare("SELECT value FROM settings WHERE key = 'pricing_overrides'").get();
-    return row ? JSON.parse(row.value) : {};
+    const row = await db.get("SELECT value FROM settings WHERE key = 'pricing_overrides'");
+    cachedOverrides = row ? JSON.parse(row.value) : {};
   } catch {
-    return {};
+    cachedOverrides = {};
   }
+  return cachedOverrides;
+}
+
+function setOverridesCache(overrides) {
+  cachedOverrides = overrides && typeof overrides === 'object' ? { ...overrides } : {};
+}
+
+function getOverrides() {
+  return { ...cachedOverrides };
 }
 
 function getServices() {
@@ -157,4 +168,6 @@ module.exports = {
   pricedItems,
   publicCatalog,
   getOverrides,
+  setOverridesCache,
+  init,
 };

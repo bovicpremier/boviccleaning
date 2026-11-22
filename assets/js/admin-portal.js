@@ -701,13 +701,49 @@
   });
 
   // Payments (Stripe & PayPal)
+  function renderStripeSecretMeta(data) {
+    const skStatus = document.getElementById('p-stripe-secret-status');
+    const skClear = document.getElementById('clear-stripe-secret-btn');
+    const whStatus = document.getElementById('p-stripe-webhook-status');
+    const whClear = document.getElementById('clear-stripe-webhook-btn');
+    if (skStatus) {
+      if (data.stripeKeySource === 'admin') {
+        skStatus.innerHTML = `<span class="text-success fw-semibold">Saved (${esc(data.stripeSecretHint)})</span>`;
+        if (skClear) skClear.style.display = 'inline';
+      } else if (data.stripeKeySource === 'env') {
+        skStatus.innerHTML = `<span class="text-info fw-semibold">Using server env (${esc(data.stripeSecretHint)})</span>`;
+        if (skClear) skClear.style.display = 'none';
+      } else {
+        skStatus.textContent = 'Not set yet';
+        if (skClear) skClear.style.display = 'none';
+      }
+    }
+    if (whStatus) {
+      if (data.stripeWebhookSource === 'admin') {
+        whStatus.innerHTML = `<span class="text-success fw-semibold">Saved (${esc(data.stripeWebhookHint)})</span>`;
+        if (whClear) whClear.style.display = 'inline';
+      } else if (data.stripeWebhookSource === 'env') {
+        whStatus.innerHTML = `<span class="text-info fw-semibold">Using server env (${esc(data.stripeWebhookHint)})</span>`;
+        if (whClear) whClear.style.display = 'none';
+      } else {
+        whStatus.textContent = 'Optional';
+        if (whClear) whClear.style.display = 'none';
+      }
+    }
+  }
+
   async function loadPaymentSettings() {
     const data = await api('/api/admin/settings/payments');
     const s = data.settings;
     document.getElementById('p-stripe-api').checked = s.stripe_checkout_enabled;
-    document.getElementById('stripe-api-badge').textContent = data.stripeApiConfigured ? 'API Key Ready' : 'Demo Mode (set STRIPE_SECRET_KEY in .env)';
+    document.getElementById('stripe-api-badge').textContent = data.stripeApiConfigured ? 'API Key Ready' : 'Not configured yet (add key below or use Payment Links)';
     document.getElementById('stripe-api-badge').className = 'badge ms-1 ' + (data.stripeApiConfigured ? 'bg-success' : 'bg-warning text-dark');
     document.getElementById('webhook-url').textContent = data.webhookUrl;
+    const skInput = document.getElementById('p-stripe-secret-key');
+    const whInput = document.getElementById('p-stripe-webhook-secret');
+    if (skInput) skInput.value = '';
+    if (whInput) whInput.value = '';
+    renderStripeSecretMeta(data);
 
     document.getElementById('p-stripe-links').checked = s.stripe_links_enabled;
     document.getElementById('p-stripe-default').value = s.stripe_default_link || '';
@@ -729,6 +765,28 @@
       </tr>`).join('');
   }
 
+  document.getElementById('p-stripe-secret-key').addEventListener('input', (e) => {
+    if (e.target.value.trim()) document.getElementById('p-stripe-api').checked = true;
+  });
+
+  document.getElementById('clear-stripe-secret-btn').addEventListener('click', async () => {
+    if (!confirm('Remove the saved Stripe Secret Key from Admin settings?')) return;
+    try {
+      await api('/api/admin/settings/payments', { method: 'PUT', body: JSON.stringify({ clear_stripe_secret_key: true }) });
+      toast('Saved Stripe Secret Key removed.');
+      loadPaymentSettings();
+    } catch (ex) { alert(ex.message); }
+  });
+
+  document.getElementById('clear-stripe-webhook-btn').addEventListener('click', async () => {
+    if (!confirm('Remove the saved Stripe Webhook Signing Secret from Admin settings?')) return;
+    try {
+      await api('/api/admin/settings/payments', { method: 'PUT', body: JSON.stringify({ clear_stripe_webhook_secret: true }) });
+      toast('Saved Stripe Webhook Secret removed.');
+      loadPaymentSettings();
+    } catch (ex) { alert(ex.message); }
+  });
+
   document.getElementById('copy-webhook-btn').addEventListener('click', () => {
     navigator.clipboard.writeText(document.getElementById('webhook-url').textContent);
     toast('Webhook URL copied');
@@ -741,20 +799,26 @@
     const paypalItems = {};
     document.querySelectorAll('.item-paypal').forEach(el => { if (el.value.trim()) paypalItems[el.dataset.k] = el.value.trim(); });
 
+    const payload = {
+      stripe_checkout_enabled: document.getElementById('p-stripe-api').checked,
+      stripe_links_enabled: document.getElementById('p-stripe-links').checked,
+      stripe_default_link: document.getElementById('p-stripe-default').value.trim(),
+      stripe_item_links: stripeItems,
+      paypal_enabled: document.getElementById('p-paypal-enabled').checked,
+      paypal_link: document.getElementById('p-paypal-link').value.trim(),
+      paypal_item_links: paypalItems,
+      pay_later_enabled: document.getElementById('p-later-enabled').checked,
+      pay_later_label: document.getElementById('p-later-label').value.trim(),
+    };
+    const newSk = document.getElementById('p-stripe-secret-key').value.trim();
+    const newWh = document.getElementById('p-stripe-webhook-secret').value.trim();
+    if (newSk) payload.stripe_secret_key = newSk;
+    if (newWh) payload.stripe_webhook_secret = newWh;
+
     try {
       await api('/api/admin/settings/payments', {
         method: 'PUT',
-        body: JSON.stringify({
-          stripe_checkout_enabled: document.getElementById('p-stripe-api').checked,
-          stripe_links_enabled: document.getElementById('p-stripe-links').checked,
-          stripe_default_link: document.getElementById('p-stripe-default').value.trim(),
-          stripe_item_links: stripeItems,
-          paypal_enabled: document.getElementById('p-paypal-enabled').checked,
-          paypal_link: document.getElementById('p-paypal-link').value.trim(),
-          paypal_item_links: paypalItems,
-          pay_later_enabled: document.getElementById('p-later-enabled').checked,
-          pay_later_label: document.getElementById('p-later-label').value.trim(),
-        }),
+        body: JSON.stringify(payload),
       });
       toast('Stripe & PayPal settings saved!');
       loadPaymentSettings();

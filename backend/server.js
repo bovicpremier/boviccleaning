@@ -89,10 +89,114 @@ async function resolveJwtSecret() {
   return secretVal;
 }
 
-const stripeKey = process.env.STRIPE_SECRET_KEY || '';
-const stripeApiConfigured =
-  (stripeKey.startsWith('sk_test_') || stripeKey.startsWith('sk_live_')) && !stripeKey.includes('your_stripe');
-const stripe = stripeApiConfigured ? Stripe(stripeKey) : null;
+function isValidStripeSecretKey(val) {
+  const s = String(val || '').trim();
+  return /^(sk|rk)_(test|live)_/.test(s) && !s.includes('your_stripe') && s.length >= 24 && s.length <= 200;
+}
+
+function isValidStripeWebhookSecret(val) {
+  const s = String(val || '').trim();
+  return s.startsWith('whsec_') && !s.includes('your_webhook') && s.length >= 16 && s.length <= 200;
+}
+
+function secretCipherKey() {
+  return crypto.createHash('sha256').update('bovic-stripe-secrets-v1:' + JWT_SECRET).digest();
+}
+
+function encryptSecretValue(plain) {
+  if (!plain || !JWT_SECRET) return '';
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', secretCipherKey(), iv);
+  const ct = Buffer.concat([cipher.update(String(plain), 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `v1:${iv.toString('base64')}:${tag.toString('base64')}:${ct.toString('base64')}`;
+}
+
+function decryptSecretValue(enc) {
+  if (!enc || !JWT_SECRET) return '';
+  try {
+    const parts = String(enc).split(':');
+    if (parts.length !== 4 || parts[0] !== 'v1') return '';
+    const [, ivB64, tagB64, ctB64] = parts;
+    const decipher = crypto.createDecipheriv('aes-256-gcm', secretCipherKey(), Buffer.from(ivB64, 'base64'));
+    decipher.setAuthTag(Buffer.from(tagB64, 'base64'));
+    return Buffer.concat([decipher.update(Buffer.from(ctB64, 'base64')), decipher.final()]).toString('utf8');
+  } catch {
+    return '';
+  }
+}
+
+function maskStripeValue(val) {
+  const s = String(val || '').trim();
+  if (!s) return '';
+  const m = s.match(/^([a-z]+_(?:test_|live_)?)/i);
+  const prefix = m ? m[1] : '';
+  const tail = s.length > prefix.length + 4 ? s.slice(-4) : '';
+  return `${prefix}••••${tail}`;
+}
+
+const stripeRuntime = {
+  secretKey: '',
+  webhookSecret: '',
+  keySource: 'none',
+  webhookSource: 'none',
+  client: null,
+};
+
+function refreshStripeRuntime() {
+  const saved = getSetting('stripe_secrets', {});
+  const adminKey = decryptSecretValue(saved.secret_key_enc);
+  const envKey = String(process.env.STRIPE_SECRET_KEY || '').trim();
+  let nextKey = '';
+  let keySource = 'none';
+  if (isValidStripeSecretKey(adminKey)) {
+    nextKey = adminKey;
+    keySource = 'admin';
+  } else if (isValidStripeSecretKey(envKey)) {
+    nextKey = envKey;
+    keySource = 'env';
+  }
+
+  const adminWh = decryptSecretValue(saved.webhook_secret_enc);
+  const envWh = String(process.env.STRIPE_WEBHOOK_SECRET || '').trim();
+  let nextWh = '';
+  let webhookSource = 'none';
+  if (isValidStripeWebhookSecret(adminWh)) {
+    nextWh = adminWh;
+    webhookSource = 'admin';
+  } else if (isValidStripeWebhookSecret(envWh)) {
+    nextWh = envWh;
+    webhookSource = 'env';
+  }
+
+  if (nextKey !== stripeRuntime.secretKey) {
+    stripeRuntime.client = nextKey ? Stripe(nextKey) : null;
+  }
+  stripeRuntime.secretKey = nextKey;
+  stripeRuntime.webhookSecret = nextWh;
+  stripeRuntime.keySource = keySource;
+  stripeRuntime.webhookSource = webhookSource;
+}
+
+const getStripeClient = () => stripeRuntime.client;
+const isStripeApiConfigured = () => Boolean(stripeRuntime.client);
+const getStripeWebhookSecret = () => stripeRuntime.webhookSecret;
+
+function safePublicBaseUrl(req) {
+  const host = String((req && req.get && req.get('host')) || '').trim().toLowerCase();
+  if (host) {
+    const baseHost = (() => { try { return new URL(BASE_URL).host.toLowerCase(); } catch { return ''; } })();
+    const allowed = host === baseHost
+      || /^(www\.)?boviccleaning\.com$/.test(host)
+      || /^[a-z0-9-]+\.onrender\.com$/.test(host)
+      || /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host);
+    if (allowed) {
+      const proto = host.startsWith('localhost') || host.startsWith('127.0.0.1') ? (req.protocol || 'http') : 'https';
+      return `${proto}://${host}`;
+    }
+  }
+  return BASE_URL;
+}
 
 const TIME_SLOTS = ['08:00 AM', '10:30 AM', '01:00 PM', '03:30 PM'];
 const MAX_BOOKINGS_PER_SLOT = 2;
@@ -529,7 +633,7 @@ function paypalLinkFor(booking, p = getPayments()) {
 
 function availableMethods(p = getPayments()) {
   const methods = [];
-  if (stripeApiConfigured && p.stripe_checkout_enabled) {
+  if (isStripeApiConfigured() && p.stripe_checkout_enabled) {
     methods.push({ key: 'stripe', label: 'Card (Stripe Checkout)', desc: 'Pay securely by card, Apple Pay or Google Pay', icon: 'fab fa-cc-stripe' });
   }
   if (p.stripe_links_enabled && (p.stripe_default_link || Object.keys(p.stripe_item_links).length)) {
@@ -625,12 +729,14 @@ async function postMessage({ threadType, bookingId = null, recipientId = null, a
 
 // --- Stripe webhook (raw body, before express.json) ---
 app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
-  if (!stripe || !process.env.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET.includes('your_webhook')) {
+  const sc = getStripeClient();
+  const whSecret = getStripeWebhookSecret();
+  if (!sc || !whSecret) {
     return res.json({ received: true, mode: 'not_configured' });
   }
   let event;
   try {
-    event = stripe.webhooks.constructEvent(req.body, req.headers['stripe-signature'], process.env.STRIPE_WEBHOOK_SECRET);
+    event = sc.webhooks.constructEvent(req.body, req.headers['stripe-signature'], whSecret);
   } catch (err) {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
@@ -1130,9 +1236,15 @@ app.post('/api/bookings/checkout', async (req, res) => {
     }
 
     if (method === 'stripe') {
+      const sc = getStripeClient();
+      if (!sc) {
+        await cancelBooking();
+        return res.status(503).json({ error: 'Stripe Checkout is not configured right now.' });
+      }
+      const originBase = safePublicBaseUrl(req);
       let session;
       try {
-        session = await stripe.checkout.sessions.create({
+        session = await sc.checkout.sessions.create({
           mode: 'payment',
           customer_email: email,
           client_reference_id: code,
@@ -1148,8 +1260,8 @@ app.post('/api/bookings/checkout', async (req, res) => {
             quantity: 1,
           }],
           metadata: { booking_code: code, promo_code: promo ? promo.promo_code : '' },
-          success_url: `${BASE_URL}/book.html?status=success&session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url: `${BASE_URL}/book.html?status=cancelled&code=${code}`,
+          success_url: `${originBase}/book.html?status=success&session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${originBase}/book.html?status=cancelled&code=${code}`,
         });
       } catch (err) {
         await cancelBooking(); // release the slot if Stripe is unreachable
@@ -1206,9 +1318,10 @@ app.post('/api/bookings/confirm-session', async (req, res) => {
       const paid = await markPaid(booking, 'demo', sid);
       return res.json({ booking: publicBookingSummary(paid) });
     }
-    if (!stripe) return res.status(400).json({ error: 'Card payments are not configured' });
+    const sc = getStripeClient();
+    if (!sc) return res.status(400).json({ error: 'Card payments are not configured' });
     if (booking.payment_status === 'paid') return res.json({ booking: publicBookingSummary(booking) });
-    const session = await stripe.checkout.sessions.retrieve(sid);
+    const session = await sc.checkout.sessions.retrieve(sid);
     if (session.payment_status !== 'paid') return res.status(402).json({ error: 'Payment has not completed yet' });
     if (!stripeAmountMatches(booking, session)) {
       await flagPaymentMismatch(booking, session);
@@ -1315,7 +1428,7 @@ app.get('/api/admin/stats', authRequired(), async (req, res) => {
   res.json({
     paidRevenueCents, totalBookings, needsWorker, unpaid, quotes, todayJobs, activeWorkers,
     unreadMessages,
-    stripeApiConfigured,
+    stripeApiConfigured: isStripeApiConfigured(),
     smtpConfigured: Boolean(process.env.SMTP_HOST && process.env.SMTP_PASS),
     paymentMethods: availableMethods().methods.map(m => m.key),
   });
@@ -1336,7 +1449,7 @@ app.get('/api/admin/bookings/:id', authRequired(), async (req, res) => {
   const links = req.user.role === 'worker' ? {} : {
     stripe_link: stripeLinkFor(b),
     paypal: paypalLinkFor(b),
-    stripe_api: stripeApiConfigured,
+    stripe_api: isStripeApiConfigured(),
   };
   const emails = req.user.role === 'worker' ? [] :
     await db.all('SELECT email_type, recipient, subject, status, sent_at FROM email_logs WHERE booking_id = ? ORDER BY sent_at DESC LIMIT 30', b.id);
@@ -1434,15 +1547,17 @@ app.post('/api/admin/bookings/:id/payment-request', authRequired(STAFF_ROLES), a
     let payUrl = null;
 
     if (method === 'stripe') {
-      if (!stripe) return res.status(400).json({ error: 'Stripe API key is not configured in backend/.env' });
-      const session = await stripe.checkout.sessions.create({
+      const sc = getStripeClient();
+      if (!sc) return res.status(400).json({ error: 'Stripe API key is not configured yet (add it in Admin → Payments)' });
+      const originBase = safePublicBaseUrl(req);
+      const session = await sc.checkout.sessions.create({
         mode: 'payment',
         customer_email: b.customer_email,
         client_reference_id: b.booking_code,
         line_items: [{ price_data: { currency: 'usd', product_data: { name: `${b.service_type} — ${b.home_size}`, description: `${b.cleaning_date} at ${b.time_slot}` }, unit_amount: b.price_cents }, quantity: 1 }],
         metadata: { booking_code: b.booking_code },
-        success_url: `${BASE_URL}/book.html?status=success&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${BASE_URL}/book.html?status=cancelled&code=${b.booking_code}`,
+        success_url: `${originBase}/book.html?status=success&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${originBase}/book.html?status=cancelled&code=${b.booking_code}`,
       });
       await db.run("UPDATE bookings SET stripe_session_id = ?, payment_method = 'stripe' WHERE id = ?", session.id, b.id);
       payUrl = session.url;
@@ -1724,13 +1839,24 @@ app.get('/api/admin/audit-logs', authRequired(['super_admin']), async (req, res)
   });
 });
 
+function paymentSettingsStatus(req) {
+  return {
+    stripeApiConfigured: isStripeApiConfigured(),
+    stripeWebhookConfigured: Boolean(getStripeWebhookSecret()),
+    stripeSecretHint: maskStripeValue(stripeRuntime.secretKey),
+    stripeWebhookHint: maskStripeValue(stripeRuntime.webhookSecret),
+    stripeKeySource: stripeRuntime.keySource,
+    stripeWebhookSource: stripeRuntime.webhookSource,
+    webhookUrl: `${safePublicBaseUrl(req)}/api/webhooks/stripe`,
+    activeMethods: availableMethods().methods.map(m => m.key),
+  };
+}
+
 app.get('/api/admin/settings/payments', authRequired(['super_admin']), (req, res) => {
   res.json({
     settings: getPayments(),
     items: catalog.pricedItems(),
-    stripeApiConfigured,
-    webhookUrl: `${BASE_URL}/api/webhooks/stripe`,
-    activeMethods: availableMethods().methods.map(m => m.key),
+    ...paymentSettingsStatus(req),
   });
 });
 
@@ -1748,24 +1874,80 @@ app.put('/api/admin/settings/payments', authRequired(['super_admin']), async (re
     return out;
   };
   try {
-    const stripeDefault = String(input.stripe_default_link || '').trim();
-    const paypalLink = String(input.paypal_link || '').trim();
-    if (!validLink(stripeDefault, 'stripe')) throw new Error('The default Stripe link must be an https://buy.stripe.com/... link');
-    if (!validLink(paypalLink, 'paypal')) throw new Error('The PayPal link must be an https://paypal.me/... or https://www.paypal.com/... link');
-    const next = {
-      stripe_checkout_enabled: Boolean(input.stripe_checkout_enabled),
-      stripe_links_enabled: Boolean(input.stripe_links_enabled),
-      stripe_default_link: stripeDefault,
-      stripe_item_links: cleanMap(input.stripe_item_links, 'stripe'),
-      paypal_enabled: Boolean(input.paypal_enabled),
-      paypal_link: paypalLink,
-      paypal_item_links: cleanMap(input.paypal_item_links, 'paypal'),
-      pay_later_enabled: Boolean(input.pay_later_enabled),
-      pay_later_label: String(input.pay_later_label || DEFAULT_PAYMENTS.pay_later_label).trim().slice(0, 140),
-    };
-    await setSetting('payments', next);
-    auditLog(req, req.user, 'payment_settings_updated', 'payments', availableMethods(next).methods.map(m => m.key).join(','));
-    res.json({ success: true, settings: next, activeMethods: availableMethods().methods.map(m => m.key) });
+    const savedSecrets = { ...getSetting('stripe_secrets', {}) };
+    let secretsChanged = false;
+    const secretNote = [];
+
+    if (input.clear_stripe_secret_key) {
+      delete savedSecrets.secret_key_enc;
+      secretsChanged = true;
+      secretNote.push('stripe_secret_cleared');
+    } else if (typeof input.stripe_secret_key === 'string' && input.stripe_secret_key.trim()) {
+      const rawSk = input.stripe_secret_key.trim();
+      if (rawSk.startsWith('pk_')) {
+        throw new Error('Paste your Stripe Secret Key (sk_live_... or sk_test_...), NOT your Publishable Key (pk_...).');
+      }
+      if (!isValidStripeSecretKey(rawSk)) {
+        throw new Error('Stripe Secret Key must start with sk_live_, sk_test_, rk_live_, or rk_test_.');
+      }
+      savedSecrets.secret_key_enc = encryptSecretValue(rawSk);
+      secretsChanged = true;
+      secretNote.push('stripe_secret_updated');
+    }
+
+    if (input.clear_stripe_webhook_secret) {
+      delete savedSecrets.webhook_secret_enc;
+      secretsChanged = true;
+      secretNote.push('stripe_webhook_cleared');
+    } else if (typeof input.stripe_webhook_secret === 'string' && input.stripe_webhook_secret.trim()) {
+      const rawWh = input.stripe_webhook_secret.trim();
+      if (!isValidStripeWebhookSecret(rawWh)) {
+        throw new Error('Stripe Webhook Signing Secret must start with whsec_.');
+      }
+      savedSecrets.webhook_secret_enc = encryptSecretValue(rawWh);
+      secretsChanged = true;
+      secretNote.push('stripe_webhook_updated');
+    }
+
+    if (secretsChanged) {
+      if (savedSecrets.secret_key_enc || savedSecrets.webhook_secret_enc) {
+        await setSetting('stripe_secrets', savedSecrets);
+      } else {
+        await deleteSetting('stripe_secrets');
+      }
+      refreshStripeRuntime();
+    }
+
+    const cur = getPayments();
+    const hasLinkFields = ['stripe_checkout_enabled', 'stripe_links_enabled', 'stripe_default_link',
+      'stripe_item_links', 'paypal_enabled', 'paypal_link', 'paypal_item_links', 'pay_later_enabled', 'pay_later_label']
+      .some(k => input[k] !== undefined);
+
+    let next = cur;
+    if (hasLinkFields) {
+      const stripeDefault = input.stripe_default_link !== undefined ? String(input.stripe_default_link || '').trim() : cur.stripe_default_link;
+      const paypalLink = input.paypal_link !== undefined ? String(input.paypal_link || '').trim() : cur.paypal_link;
+      if (!validLink(stripeDefault, 'stripe')) throw new Error('The default Stripe link must be an https://buy.stripe.com/... link');
+      if (!validLink(paypalLink, 'paypal')) throw new Error('The PayPal link must be an https://paypal.me/... or https://www.paypal.com/... link');
+      next = {
+        stripe_checkout_enabled: input.stripe_checkout_enabled !== undefined ? Boolean(input.stripe_checkout_enabled) : cur.stripe_checkout_enabled,
+        stripe_links_enabled: input.stripe_links_enabled !== undefined ? Boolean(input.stripe_links_enabled) : cur.stripe_links_enabled,
+        stripe_default_link: stripeDefault,
+        stripe_item_links: input.stripe_item_links !== undefined ? cleanMap(input.stripe_item_links, 'stripe') : cur.stripe_item_links,
+        paypal_enabled: input.paypal_enabled !== undefined ? Boolean(input.paypal_enabled) : cur.paypal_enabled,
+        paypal_link: paypalLink,
+        paypal_item_links: input.paypal_item_links !== undefined ? cleanMap(input.paypal_item_links, 'paypal') : cur.paypal_item_links,
+        pay_later_enabled: input.pay_later_enabled !== undefined ? Boolean(input.pay_later_enabled) : cur.pay_later_enabled,
+        pay_later_label: input.pay_later_label !== undefined
+          ? String(input.pay_later_label || DEFAULT_PAYMENTS.pay_later_label).trim().slice(0, 140)
+          : cur.pay_later_label,
+      };
+      await setSetting('payments', next);
+    }
+
+    const details = [...secretNote, ...availableMethods(next).methods.map(m => m.key)].join(',');
+    auditLog(req, req.user, 'payment_settings_updated', 'payments', details);
+    res.json({ success: true, settings: next, ...paymentSettingsStatus(req) });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -2133,6 +2315,7 @@ async function startServer() {
   await db.init();
   await loadSettingsCache();
   JWT_SECRET = await resolveJwtSecret();
+  refreshStripeRuntime();
   await catalog.init();
 
   cron.schedule('*/15 * * * *', () => runReminderSweep().catch(e => console.error('[Reminder Cron]', e)));

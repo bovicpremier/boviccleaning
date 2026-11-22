@@ -674,12 +674,16 @@
               }
               #bovic-promo-fab { animation: bovicBlackGlow 2.6s infinite; transition: transform .18s ease; }
               #bovic-promo-fab:hover { transform: translateY(-2px) scale(1.02); }
-              /* Phones: compact gift icon at bottom-right so it never covers the hero buttons */
+              /* Phones: compact pill (icon + "Black Nov / 20% OFF") at bottom-right so it never covers the hero buttons */
               @media (max-width: 767px) {
-                #bovic-promo-fab { left: auto !important; right: 14px !important; bottom: 128px !important; padding: 5px !important; gap: 0 !important; }
-                #bovic-promo-fab .bovic-fab-text { display: none !important; }
+                #bovic-promo-fab { left: auto !important; right: 14px !important; bottom: 128px !important; padding: 5px 11px 5px 5px !important; gap: 7px !important; }
+                #bovic-promo-fab .bovic-fab-text span:first-child { font-size: 9px !important; }
+                #bovic-promo-fab .bovic-fab-text span:last-child { font-size: 11px !important; }
                 #bovic-promo-popover { left: 12px !important; right: 12px !important; width: auto !important; max-width: none !important; bottom: 186px !important; }
               }
+              /* Mobile menu open (theme adds body.locked): keep promo bar, pill & card from sitting on top of it */
+              body.locked #bovic-promo-bar { visibility: hidden !important; }
+              body.locked #bovic-promo-fab, body.locked #bovic-promo-popover { display: none !important; }
               @media (prefers-reduced-motion: reduce) { #bovic-promo-fab { animation: none; } }
             `;
             document.head.appendChild(st);

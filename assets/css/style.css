@@ -30769,3 +30769,7 @@ img[src*="bovic-logo"] {
 @media (min-width: 1200px) {
   .main-menu__logo img[src*="bovic-logo"] { max-height: 84px; max-width: 170px; }
 }
+@media (max-width: 1199px) {
+  .main-header img[src*="bovic-logo"],
+  .main-menu__logo img[src*="bovic-logo"] { max-height: 62px; max-width: 150px; }
+}

@@ -27,6 +27,53 @@
     toast._t = setTimeout(() => { el.style.display = 'none'; }, 3400);
   }
 
+  function resetPasswordInputs(scope = document) {
+    if (!scope) return;
+    scope.querySelectorAll('input[data-pw-enhanced]').forEach((input) => {
+      input.type = 'password';
+      const btn = input.parentElement && input.parentElement.querySelector('.pw-toggle-btn');
+      if (btn) {
+        btn.setAttribute('aria-pressed', 'false');
+        btn.setAttribute('aria-label', 'Show password');
+        btn.innerHTML = '<i class="fas fa-eye" aria-hidden="true"></i>';
+      }
+    });
+  }
+
+  function initPasswordToggles() {
+    document.querySelectorAll('input[type="password"]').forEach((input) => {
+      if (input.dataset.pwEnhanced) return;
+      input.dataset.pwEnhanced = '1';
+      const group = document.createElement('div');
+      group.className = 'input-group' + (input.classList.contains('form-control-sm') ? ' input-group-sm' : '');
+      input.parentNode.insertBefore(group, input);
+      group.appendChild(input);
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn pw-toggle-btn';
+      btn.setAttribute('aria-label', 'Show password');
+      btn.setAttribute('aria-pressed', 'false');
+      btn.title = 'Show / Hide';
+      btn.innerHTML = '<i class="fas fa-eye" aria-hidden="true"></i>';
+      btn.addEventListener('click', () => {
+        const show = input.type === 'password';
+        input.type = show ? 'text' : 'password';
+        btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+        btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+        btn.innerHTML = `<i class="fas ${show ? 'fa-eye-slash' : 'fa-eye'}" aria-hidden="true"></i>`;
+      });
+      group.appendChild(btn);
+
+      const form = input.closest('form');
+      if (form && !form.dataset.pwResetBound) {
+        form.dataset.pwResetBound = '1';
+        form.addEventListener('reset', () => resetPasswordInputs(form));
+      }
+    });
+  }
+  initPasswordToggles();
+
   async function api(path, opts = {}) {
     const method = (opts.method || 'GET').toUpperCase();
     const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
@@ -81,6 +128,7 @@
         }),
       });
       document.getElementById('l-pass').value = '';
+      resetPasswordInputs(document.getElementById('login-form'));
       ME = data.user;
       if (ME.must_change_password) {
         showForcePasswordView();
@@ -651,6 +699,7 @@
       document.getElementById('eu-phone').value = u.phone;
       document.getElementById('eu-areas').value = u.service_areas;
       document.getElementById('eu-pass').value = '';
+      resetPasswordInputs(document.getElementById('edit-user-form'));
       EDIT_MODAL.show();
     } else if (act === 'toggle') {
       await api(`/api/admin/users/${id}/toggle`, { method: 'PATCH' });
@@ -743,6 +792,7 @@
     const whInput = document.getElementById('p-stripe-webhook-secret');
     if (skInput) skInput.value = '';
     if (whInput) whInput.value = '';
+    resetPasswordInputs(document.getElementById('payments-form'));
     renderStripeSecretMeta(data);
 
     document.getElementById('p-stripe-links').checked = s.stripe_links_enabled;

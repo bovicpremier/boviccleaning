@@ -2,7 +2,7 @@
 // Pages: always fetched fresh from the network, with the last copy used only when offline.
 // Scripts & styles under /assets/: network first. Images & fonts: from cache, refreshed in the background.
 // Never touches /api/ (bookings, payments, prices) or the admin portal.
-const VERSION = 'bovic-v2';
+const VERSION = 'bovic-v3';
 const PAGE_CACHE = VERSION + '-pages';
 const ASSET_CACHE = VERSION + '-assets';
 const PRECACHE = ['/index.html', '/book.html', '/pricing.html', '/contact.html'];

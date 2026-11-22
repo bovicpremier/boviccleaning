@@ -30756,16 +30756,16 @@ Privacy Policy Page
 /*--------------------------------------------------------------
 # End All Css
 --------------------------------------------------------------*/
-/* ---- Bovic brand logo (2026-11 palette refresh) ---- */
+/* ---- Bovic brand logo (transparent, no badge) ---- */
 img[src*="bovic-logo"] {
   height: auto !important;
-  max-height: 66px;
+  max-height: 72px;
   width: auto !important;
-  max-width: 190px;
-  background: linear-gradient(135deg, #ffffff 0%, var(--bovic-cream) 100%);
-  border-radius: 14px;
-  padding: 5px 12px;
-  box-shadow: 0 4px 14px rgba(23, 42, 84, .18);
+  max-width: 200px;
   object-fit: contain;
+  filter: drop-shadow(0 2px 6px rgba(11, 20, 48, .35));
 }
 .mobile-nav__content img[src*="bovic-logo"] { max-width: 170px; }
+@media (min-width: 1200px) {
+  .main-menu__logo img[src*="bovic-logo"] { max-height: 84px; max-width: 170px; }
+}

@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Staff &amp; Super Admin Portal || Bovic Premier Cleaning Pros LLC</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/images/favicons/favicon-32x32.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Rubik:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="assets/css/font-awesome-all.css" />
+  <style>
+    :root {
+      --dark: #0c342f;
+      --pine: #0e3026;
+      --green: #0a7158;
+      --gold: #f1ab21;
+      --cream: #f7f4f1;
+      --border: #ded8cf;
+      --muted: #595752;
+    }
+    * { box-sizing: border-box; }
+    body { font-family: 'Poppins', sans-serif; background: var(--cream); color: var(--dark); margin: 0; }
+    h1, h2, h3, h4, h5, h6 { font-family: 'Rubik', sans-serif; color: var(--dark); }
+
+    .login-wrap { min-height: 100vh; display: grid; place-items: center; background: linear-gradient(135deg, var(--dark) 0%, var(--pine) 60%, var(--green) 100%); padding: 20px; }
+    .login-card { background: #fff; border-radius: 16px; padding: 36px; width: 100%; max-width: 430px; border: 1px solid var(--border); box-shadow: 0 24px 60px rgba(0,0,0,.28); }
+
+    .app-shell { display: flex; min-height: 100vh; }
+    .sidebar { width: 256px; flex-shrink: 0; background: var(--dark); color: #fff; padding: 22px 14px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow-y: auto; border-right: 1px solid var(--pine); }
+    .sidebar .nav-btn { width: 100%; text-align: left; background: transparent; border: 0; color: #cfe3dd; padding: 10px 13px; border-radius: 10px; font-weight: 500; font-size: 14px; margin-bottom: 4px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 10px; text-decoration: none; transition: all .15s; }
+    .sidebar .nav-btn .lbl { display: flex; align-items: center; gap: 10px; }
+    .sidebar .nav-btn:hover { background: var(--pine); color: #fff; }
+    .sidebar .nav-group-title { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--gold); opacity: .85; padding: 14px 13px 6px; }
+    .sidebar .nav-group-title.first { padding-top: 2px; }
+    .sidebar .nav-btn.active { background: var(--green); color: #fff; font-weight: 600; box-shadow: inset 3px 0 0 var(--gold); }
+    .nav-pill-cnt { background: var(--gold); color: var(--dark); font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; }
+    .main-area { flex: 1; min-width: 0; padding: 24px 28px; }
+
+    .mobile-topbar { display: none; background: var(--dark); color: #fff; padding: 12px 16px; align-items: center; justify-content: space-between; border-bottom: 3px solid var(--gold); }
+    .sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 1040; }
+    @media (max-width: 991px) {
+      .app-shell { display: block; }
+      .mobile-topbar { display: flex; }
+      .sidebar { position: fixed; left: 0; top: 0; bottom: 0; z-index: 1050; transform: translateX(-100%); transition: transform .22s ease; }
+      .sidebar.open { transform: translateX(0); }
+      .sidebar-backdrop.open { display: block; }
+      .main-area { padding: 16px; }
+    }
+
+    .kpi-card { background: #fff; border-radius: 12px; padding: 16px 18px; border: 1px solid var(--border); box-shadow: 0 4px 16px rgba(12,52,47,.04); height: 100%; }
+    .kpi-card small { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    .kpi-card h2 { font-weight: 700; margin: 4px 0 0; font-size: 26px; }
+    .panel-card { background: #fff; border-radius: 14px; padding: 22px; border: 1px solid var(--border); box-shadow: 0 6px 22px rgba(12,52,47,.04); }
+    .btn-gold { background: var(--gold); color: var(--dark); border: 0; border-radius: 10px; font-weight: 600; padding: 8px 16px; cursor: pointer; }
+    .btn-gold:hover { background: #e09c17; color: var(--dark); }
+    .btn-emerald { background: var(--green); color: #fff; border: 0; border-radius: 10px; font-weight: 600; padding: 8px 16px; cursor: pointer; }
+    .btn-emerald:hover { background: var(--dark); color: #fff; }
+    .badge-role { padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: uppercase; display: inline-block; }
+    .role-super_admin { background: var(--gold); color: var(--dark); }
+    .role-admin { background: var(--green); color: #fff; }
+    .role-worker { background: #e5ecea; color: var(--dark); }
+
+    .tab-pane-sec { display: none; }
+    .tab-pane-sec.active { display: block; }
+
+    .filter-pill { border: 1px solid var(--border); background: #fff; color: var(--muted); border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .filter-pill.active { background: var(--dark); color: var(--gold); border-color: var(--dark); }
+    .worker-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: #eef6f4; color: var(--dark); transition: all .15s; }
+    .worker-chip:hover { border-color: var(--green); background: #dff1ec; }
+    .worker-chip.unassigned { background: #fff5df; border-color: var(--gold); color: #8a5b00; }
+    .worker-chip.unassigned:hover { background: var(--gold); color: var(--dark); }
+    .booking-mobile-list { display: none; }
+    @media (max-width: 900px) {
+      .booking-table-wrap { display: none; }
+      .booking-mobile-list { display: grid; gap: 12px; }
+    }
+    .b-mcard { border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: #fff; }
+
+    .cand-card { border: 2px solid var(--border); border-radius: 12px; padding: 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; transition: border-color .15s; }
+    .cand-card.is-current { border-color: var(--green); background: #eef6f4; }
+    .cand-card.has-conflict { background: #fff8f8; border-color: #f1c6c6; }
+
+    .drawer-backdrop { display: none; position: fixed; inset: 0; background: rgba(12,52,47,.45); z-index: 1060; }
+    .drawer-backdrop.open { display: block; }
+    .detail-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(540px, 100vw); background: #fff; z-index: 1070; transform: translateX(100%); transition: transform .25s ease; display: flex; flex-direction: column; box-shadow: -12px 0 40px rgba(0,0,0,.18); }
+    .detail-drawer.open { transform: translateX(0); }
+    .drawer-head { background: var(--dark); color: #fff; padding: 18px 22px; display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid var(--gold); }
+    .drawer-body { padding: 20px 22px; overflow-y: auto; flex: 1; }
+
+    .chat-shell { display: grid; grid-template-columns: 290px 1fr; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: #fff; min-height: 540px; }
+    .chat-threads { border-right: 1px solid var(--border); background: #faf9f7; overflow-y: auto; max-height: 620px; }
+    .chat-thread-item { width: 100%; text-align: left; background: transparent; border: 0; border-bottom: 1px solid #ede8df; padding: 12px 14px; cursor: pointer; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+    .chat-thread-item:hover { background: #f0ece5; }
+    .chat-thread-item.active { background: #eef6f4; border-left: 4px solid var(--green); }
+    .chat-main { display: flex; flex-direction: column; max-height: 620px; }
+    .chat-head { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: #fff; }
+    .chat-messages { flex: 1; overflow-y: auto; padding: 16px 18px; background: var(--cream); display: flex; flex-direction: column; gap: 10px; }
+    .msg-bubble { max-width: 82%; border-radius: 12px; padding: 10px 14px; font-size: 13.5px; border: 1px solid var(--border); background: #fff; align-self: flex-start; }
+    .msg-bubble.mine { background: var(--dark); color: #fff; border-color: var(--dark); align-self: flex-end; }
+    .msg-bubble.customer-out { background: #fff8e6; border-color: var(--gold); }
+    .msg-meta { font-size: 11px; opacity: .75; margin-bottom: 3px; }
+    .chat-compose { padding: 12px 16px; border-top: 1px solid var(--border); background: #fff; }
+    @media (max-width: 820px) {
+      .chat-shell { grid-template-columns: 1fr; }
+      .chat-threads { max-height: 220px; border-right: 0; border-bottom: 1px solid var(--border); }
+    }
+
+    .toast-box { position: fixed; bottom: 20px; right: 20px; z-index: 2000; background: var(--dark); color: #fff; padding: 12px 18px; border-radius: 10px; border-left: 4px solid var(--gold); font-size: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.22); display: none; }
+  </style>
+</head>
+<body>
+
+<!-- CLEAN SECURE LOGIN (NO PREFILLED OR EXPOSED CREDENTIALS) -->
+<div id="login-view" class="login-wrap">
+  <div class="login-card">
+    <div class="text-center mb-4">
+      <img src="assets/images/resources/logo-2.png" alt="Bovic Premier" style="height:46px;" class="mb-2">
+      <h4 class="fw-bold mb-1">Staff &amp; Operations Portal</h4>
+      <p class="text-muted small mb-0">Authorized Bovic Premier personnel only</p>
+    </div>
+    <div id="login-err" class="alert alert-danger py-2 small" style="display:none;"></div>
+    <form id="login-form" autocomplete="on">
+      <div class="mb-3">
+        <label class="form-label small fw-semibold" for="l-email">Work Email</label>
+        <input type="email" id="l-email" name="email" class="form-control" autocomplete="username" placeholder="name@boviccleaning.com" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label small fw-semibold" for="l-pass">Password</label>
+        <input type="password" id="l-pass" name="password" class="form-control" autocomplete="current-password" placeholder="Enter your password" required>
+      </div>
+      <button type="submit" class="btn-gold w-100 py-2">Sign In Securely</button>
+    </form>
+    <div class="text-center mt-3 small text-muted"><i class="fas fa-shield-alt me-1" style="color:var(--green);"></i>Protected by HttpOnly sessions &amp; lockout guard</div>
+    <div class="text-center mt-2"><a href="index.html" class="small text-decoration-none" style="color:var(--green);">&larr; Back to Website</a></div>
+  </div>
+</div>
+
+<!-- MANDATORY FIRST-LOGIN PASSWORD UPDATE GATE -->
+<div id="force-pw-view" class="login-wrap" style="display:none;">
+  <div class="login-card">
+    <div class="text-center mb-3">
+      <i class="fas fa-user-lock fa-2x mb-2" style="color:var(--gold);"></i>
+      <h4 class="fw-bold mb-1">Set Your Private Password</h4>
+      <p class="text-muted small mb-0">For your security, replace your temporary password before accessing the dashboard.</p>
+    </div>
+    <div id="force-pw-err" class="alert alert-danger py-2 small" style="display:none;"></div>
+    <form id="force-pw-form">
+      <div class="mb-2">
+        <label class="form-label small fw-semibold">Current Temporary Password</label>
+        <input type="password" id="fp-cur" class="form-control" autocomplete="current-password" required>
+      </div>
+      <div class="mb-2">
+        <label class="form-label small fw-semibold">New Strong Password</label>
+        <input type="password" id="fp-new" class="form-control" autocomplete="new-password" minlength="10" required>
+        <small class="text-muted">At least 10 characters with uppercase, lowercase, and a number or symbol.</small>
+      </div>
+      <div class="mb-3">
+        <label class="form-label small fw-semibold">Confirm New Password</label>
+        <input type="password" id="fp-confirm" class="form-control" autocomplete="new-password" minlength="10" required>
+      </div>
+      <button type="submit" class="btn-gold w-100 py-2">Save Private Password &amp; Continue</button>
+    </form>
+    <div class="text-center mt-3"><button type="button" id="force-logout-btn" class="btn btn-link btn-sm text-muted">Cancel &amp; Sign Out</button></div>
+  </div>
+</div>
+
+<!-- APP SHELL -->
+<div id="app-view" style="display:none;">
+  <div class="mobile-topbar">
+    <button type="button" class="btn btn-sm btn-outline-light" id="mobile-menu-btn"><i class="fas fa-bars me-1"></i>Menu</button>
+    <span class="fw-bold small" style="color:var(--gold);">Bovic Premier Portal</span>
+    <span id="mobile-role-txt" class="badge-role"></span>
+  </div>
+  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <a href="index.html" class="mb-3 d-block px-2"><img src="assets/images/resources/logo-1.png" alt="Bovic Premier" style="height:38px;"></a>
+      <div class="mb-3 px-2 pb-2 border-bottom border-secondary">
+        <div id="u-name" class="fw-semibold small text-white"></div>
+        <span id="u-role-badge" class="badge-role mt-1"></span>
+      </div>
+
+      <div class="nav-group-title first">Daily work</div>
+      <button type="button" class="nav-btn active" data-tab="bookings"><span class="lbl"><i class="fas fa-calendar-check"></i> Bookings</span><span class="nav-pill-cnt" id="badge-unassigned" style="display:none;">0</span></button>
+      <button type="button" class="nav-btn" data-tab="messages"><span class="lbl"><i class="fas fa-comments"></i> Messages</span><span class="nav-pill-cnt" id="badge-unread" style="display:none;">0</span></button>
+      <button type="button" class="nav-btn admin-only" data-tab="workers"><span class="lbl"><i class="fas fa-users"></i> Cleaners</span></button>
+      <button type="button" class="nav-btn admin-only" data-tab="calendar"><span class="lbl"><i class="fas fa-calendar-times"></i> Closed Days</span></button>
+
+      <div class="nav-group-title admin-only">Website</div>
+      <button type="button" class="nav-btn admin-only" data-tab="website"><span class="lbl"><i class="fas fa-paint-brush"></i> Text &amp; Logo</span></button>
+      <button type="button" class="nav-btn admin-only" data-tab="plugins"><span class="lbl"><i class="fas fa-tags"></i> Deals &amp; Holiday Offers</span></button>
+      <button type="button" class="nav-btn admin-only" data-tab="seo"><span class="lbl"><i class="fas fa-bullhorn"></i> Marketing &amp; Follow-ups</span></button>
+      <button type="button" class="nav-btn admin-only" data-tab="policies"><span class="lbl"><i class="fas fa-file-contract"></i> Policies</span></button>
+
+      <div class="nav-group-title admin-only">Settings</div>
+      <button type="button" class="nav-btn super-only" data-tab="payments"><span class="lbl"><i class="fas fa-credit-card"></i> Payments</span></button>
+      <button type="button" class="nav-btn super-only" data-tab="admins"><span class="lbl"><i class="fas fa-user-shield"></i> Staff Logins</span></button>
+      <button type="button" class="nav-btn admin-only" data-tab="emails"><span class="lbl"><i class="fas fa-envelope-open-text"></i> Sent Emails</span></button>
+      <button type="button" class="nav-btn super-only" data-tab="security"><span class="lbl"><i class="fas fa-shield-alt"></i> Security Log</span></button>
+
+      <div class="mt-auto pt-3 border-top border-secondary">
+        <a href="book.html" class="nav-btn"><span class="lbl"><i class="fas fa-external-link-alt"></i> Public Booking Page</span></a>
+        <button type="button" class="nav-btn" data-bs-toggle="modal" data-bs-target="#passwordModal"><span class="lbl"><i class="fas fa-key"></i> Change Password</span></button>
+        <button type="button" id="logout-btn" class="nav-btn" style="color:#ffb3b3;"><span class="lbl"><i class="fas fa-sign-out-alt"></i> Logout</span></button>
+      </div>
+    </aside>
+
+    <main class="main-area">
+      <div class="row g-3 mb-4" id="kpi-row"></div>
+
+      <!-- TAB 1: BOOKINGS & DISPATCH -->
+      <section id="tab-bookings" class="tab-pane-sec active">
+        <div class="panel-card">
+          <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <div>
+              <h5 class="fw-bold mb-0">Bookings &amp; Worker Dispatch</h5>
+              <small class="text-muted">Click Assign Worker to match cleaners by area &amp; availability, or Open to manage quotes, payments &amp; messaging.</small>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-dark" id="refresh-all-btn"><i class="fas fa-sync me-1"></i>Refresh</button>
+          </div>
+
+          <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+            <button type="button" class="filter-pill active" data-filter="all">All</button>
+            <button type="button" class="filter-pill admin-only" data-filter="needs_worker">Needs Worker <span id="pill-needs-cnt"></span></button>
+            <button type="button" class="filter-pill admin-only" data-filter="unpaid">Unpaid / Quotes</button>
+            <button type="button" class="filter-pill" data-filter="today">Today</button>
+            <button type="button" class="filter-pill" data-filter="completed">Completed</button>
+            <div class="ms-auto d-flex gap-2 flex-wrap">
+              <select id="area-filter" class="form-select form-select-sm" style="width:auto;">
+                <option value="">All Areas</option>
+                <option>Buckhead</option><option>Sandy Springs</option><option>Roswell</option><option>Alpharetta</option>
+              </select>
+              <input type="search" id="booking-search" class="form-control form-control-sm" placeholder="Search code, client, address..." style="min-width:220px;">
+            </div>
+          </div>
+
+          <div class="booking-table-wrap">
+            <table class="table table-hover align-middle small mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Booking &amp; Client</th>
+                  <th>Service &amp; Location</th>
+                  <th>Schedule</th>
+                  <th>Payment</th>
+                  <th>Status</th>
+                  <th>Assigned Cleaner</th>
+                  <th class="text-end">Manage</th>
+                </tr>
+              </thead>
+              <tbody id="bookings-tbody"></tbody>
+            </table>
+          </div>
+          <div class="booking-mobile-list" id="bookings-mobile"></div>
+        </div>
+      </section>
+
+      <!-- TAB 2: MESSAGES & CHAT -->
+      <section id="tab-messages" class="tab-pane-sec">
+        <div class="chat-shell">
+          <div class="chat-threads" id="chat-threads"></div>
+          <div class="chat-main">
+            <div class="chat-head">
+              <div>
+                <h6 class="fw-bold mb-0" id="chat-title">Select a conversation</h6>
+                <small class="text-muted" id="chat-sub">Team announcements, direct cleaner chat, or job threads</small>
+              </div>
+              <button type="button" class="btn btn-sm btn-outline-dark" id="chat-refresh-btn" style="display:none;"><i class="fas fa-sync"></i></button>
+            </div>
+            <div class="chat-messages" id="chat-messages">
+              <div class="text-center text-muted my-auto small">Choose a thread on the left to start communicating.</div>
+            </div>
+            <form class="chat-compose" id="chat-form" style="display:none;">
+              <div class="d-flex flex-wrap gap-3 align-items-center mb-2 small" id="chat-options"></div>
+              <div class="input-group">
+                <input type="text" id="chat-input" class="form-control" placeholder="Write a message..." required>
+                <button class="btn-gold" type="submit"><i class="fas fa-paper-plane me-1"></i>Send</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: WORKERS -->
+      <section id="tab-workers" class="tab-pane-sec">
+        <div class="row g-4">
+          <div class="col-lg-4">
+            <div class="panel-card">
+              <h5 class="fw-bold mb-3">Add Cleaning Worker</h5>
+              <form id="add-worker-form">
+                <div class="mb-2"><label class="small fw-semibold">Full Name *</label><input class="form-control form-control-sm" name="name" required></div>
+                <div class="mb-2"><label class="small fw-semibold">Email *</label><input type="email" class="form-control form-control-sm" name="email" required></div>
+                <div class="mb-2"><label class="small fw-semibold">Temporary Password (min 10 chars) *</label><input type="password" class="form-control form-control-sm" name="password" minlength="10" placeholder="Strong initial password" required></div>
+                <div class="mb-2"><label class="small fw-semibold">Phone</label><input class="form-control form-control-sm" name="phone" placeholder="678-555-0100"></div>
+                <div class="mb-3"><label class="small fw-semibold">Service Areas</label><input class="form-control form-control-sm" name="service_areas" value="Buckhead, Sandy Springs, Roswell, Alpharetta"></div>
+                <button type="submit" class="btn-emerald btn-sm w-100">Create Worker Account</button>
+              </form>
+            </div>
+          </div>
+          <div class="col-lg-8">
+            <div class="panel-card">
+              <h5 class="fw-bold mb-3">Cleaning Team Roster</h5>
+              <div class="table-responsive">
+                <table class="table table-sm align-middle small">
+                  <thead><tr><th>Cleaner</th><th>Areas</th><th>Workload</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
+                  <tbody id="workers-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB: WEBSITE EDITOR & LOGOS (CMS) -->
+      <section id="tab-website" class="tab-pane-sec">
+        <div class="panel-card mb-4">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <div>
+              <h5 class="fw-bold mb-1"><i class="fas fa-images me-2" style="color:var(--green);"></i>Website Logos Manager</h5>
+              <small class="text-muted">Upload your custom logos (PNG, JPEG, or WebP, max 2 MB). Updates appear live across every page.</small>
+            </div>
+            <a href="index.html" target="_blank" rel="noopener" class="btn btn-sm btn-outline-dark"><i class="fas fa-external-link-alt me-1"></i>View Live Website</a>
+          </div>
+          <div class="row g-3" id="logo-cards-row">
+            <div class="col-md-4">
+              <div class="p-3 rounded border h-100" style="background:var(--dark);color:#fff;">
+                <div class="small fw-semibold mb-2" style="color:var(--gold);">Logo 1 (Dark Headers &amp; Footers)</div>
+                <div class="mb-3 d-flex align-items-center justify-content-center" style="min-height:64px;"><img id="prev-logo-1" src="assets/images/resources/logo-1.png" alt="Logo 1" style="max-height:52px;max-width:100%;"></div>
+                <input type="file" class="form-control form-control-sm mb-2 logo-upload-input" data-variant="logo-1" accept="image/png,image/jpeg,image/webp">
+                <button type="button" class="btn btn-sm btn-outline-light w-100 logo-reset-btn" data-variant="logo-1">Reset Default</button>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="p-3 rounded border h-100 bg-white">
+                <div class="small fw-semibold mb-2">Logo 2 (Light Backgrounds &amp; Login)</div>
+                <div class="mb-3 d-flex align-items-center justify-content-center" style="min-height:64px;"><img id="prev-logo-2" src="assets/images/resources/logo-2.png" alt="Logo 2" style="max-height:52px;max-width:100%;"></div>
+                <input type="file" class="form-control form-control-sm mb-2 logo-upload-input" data-variant="logo-2" accept="image/png,image/jpeg,image/webp">
+                <button type="button" class="btn btn-sm btn-outline-dark w-100 logo-reset-btn" data-variant="logo-2">Reset Default</button>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="p-3 rounded border h-100" style="background:var(--green);color:#fff;">
+                <div class="small fw-semibold mb-2">Logo 3 (Colored / Emerald Sections)</div>
+                <div class="mb-3 d-flex align-items-center justify-content-center" style="min-height:64px;"><img id="prev-logo-3" src="assets/images/resources/logo-3.png" alt="Logo 3" style="max-height:52px;max-width:100%;"></div>
+                <input type="file" class="form-control form-control-sm mb-2 logo-upload-input" data-variant="logo-3" accept="image/png,image/jpeg,image/webp">
+                <button type="button" class="btn btn-sm btn-outline-light w-100 logo-reset-btn" data-variant="logo-3">Reset Default</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <form id="site-cms-form">
+          <div class="row g-4 mb-4">
+            <div class="col-lg-6">
+              <div class="panel-card h-100">
+                <h6 class="fw-bold mb-3">Company, Contact Details &amp; Areas</h6>
+                <div class="row g-2">
+                  <div class="col-md-6"><label class="small fw-semibold">Company Name</label><input class="form-control form-control-sm" id="cms-company"></div>
+                  <div class="col-md-6"><label class="small fw-semibold">Tagline</label><input class="form-control form-control-sm" id="cms-tagline"></div>
+                  <div class="col-md-6"><label class="small fw-semibold">Phone Number</label><input class="form-control form-control-sm" id="cms-phone"></div>
+                  <div class="col-md-6"><label class="small fw-semibold">Business Hours</label><input class="form-control form-control-sm" id="cms-hours"></div>
+                  <div class="col-md-6"><label class="small fw-semibold">Booking Email</label><input type="email" class="form-control form-control-sm" id="cms-bemail"></div>
+                  <div class="col-md-6"><label class="small fw-semibold">Info / Support Email</label><input type="email" class="form-control form-control-sm" id="cms-iemail"></div>
+                  <div class="col-12"><label class="small fw-semibold">Service Areas</label><input class="form-control form-control-sm" id="cms-areas"></div>
+                  <div class="col-12"><label class="small fw-semibold">Footer About Description</label><textarea class="form-control form-control-sm" id="cms-fabout" rows="2"></textarea></div>
+                  <div class="col-12"><label class="small fw-semibold">Copyright Line</label><input class="form-control form-control-sm" id="cms-copy"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-lg-6">
+              <div class="panel-card h-100">
+                <h6 class="fw-bold mb-3">Hero, About Copy &amp; Social Links</h6>
+                <div class="row g-2">
+                  <div class="col-12"><label class="small fw-semibold">Hero Eyebrow / Sub-title</label><input class="form-control form-control-sm" id="cms-hero-eye"></div>
+                  <div class="col-12"><label class="small fw-semibold">Hero Description</label><textarea class="form-control form-control-sm" id="cms-hero-sub" rows="2"></textarea></div>
+                  <div class="col-md-6"><label class="small fw-semibold">Hero Primary CTA Text</label><input class="form-control form-control-sm" id="cms-hero-cta"></div>
+                  <div class="col-md-3"><label class="small fw-semibold">Years Exp.</label><input class="form-control form-control-sm" id="cms-ab-yrs"></div>
+                  <div class="col-md-3"><label class="small fw-semibold">Active Staff</label><input class="form-control form-control-sm" id="cms-ab-staff"></div>
+                  <div class="col-12"><label class="small fw-semibold">About Section Heading</label><input class="form-control form-control-sm" id="cms-ab-title"></div>
+                  <div class="col-12"><label class="small fw-semibold">About Section Description</label><textarea class="form-control form-control-sm" id="cms-ab-text" rows="2"></textarea></div>
+                  <div class="col-12 pt-2 border-top mt-2">
+                    <div class="small fw-bold text-dark">Social &amp; Profile Links</div>
+                    <small class="text-muted">Icons stay hidden on public pages while blank (no dead links) and go live across all headers, footers &amp; menus once saved.</small>
+                  </div>
+                  <div class="col-md-6"><label class="small fw-semibold">Facebook URL</label><input type="url" class="form-control form-control-sm" id="cms-fb" placeholder="https://facebook.com/..."></div>
+                  <div class="col-md-6"><label class="small fw-semibold">Instagram URL</label><input type="url" class="form-control form-control-sm" id="cms-ig" placeholder="https://instagram.com/..."></div>
+                  <div class="col-md-6"><label class="small fw-semibold">Twitter / X URL</label><input type="url" class="form-control form-control-sm" id="cms-tw" placeholder="https://x.com/..."></div>
+                  <div class="col-md-6"><label class="small fw-semibold">LinkedIn URL</label><input type="url" class="form-control form-control-sm" id="cms-li" placeholder="https://linkedin.com/company/..."></div>
+                  <div class="col-md-6"><label class="small fw-semibold">Pinterest URL</label><input type="url" class="form-control form-control-sm" id="cms-pin" placeholder="https://pinterest.com/..."></div>
+                  <div class="col-md-6"><label class="small fw-semibold">TikTok URL</label><input type="url" class="form-control form-control-sm" id="cms-tt" placeholder="https://tiktok.com/@..."></div>
+                  <div class="col-md-6"><label class="small fw-semibold">YouTube Channel URL</label><input type="url" class="form-control form-control-sm" id="cms-yt" placeholder="https://youtube.com/@..."></div>
+                  <div class="col-md-6"><label class="small fw-semibold">Google Business / Reviews URL</label><input type="url" class="form-control form-control-sm" id="cms-gbp" placeholder="https://g.page/r/..."></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel-card">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+              <div>
+                <h6 class="fw-bold mb-0">Live Website &amp; Checkout Pricing Editor</h6>
+                <small class="text-muted">Updating a price here updates both the public pricing cards and online booking checkout.</small>
+              </div>
+              <button type="submit" class="btn-gold"><i class="fas fa-save me-1"></i>Save All Website Changes</button>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-sm align-middle small">
+                <thead class="table-light"><tr><th>Service</th><th>Size</th><th>Frequency</th><th style="width:160px;">Price (USD $)</th></tr></thead>
+                <tbody id="cms-pricing-tbody"></tbody>
+              </table>
+            </div>
+            <div class="text-end mt-2"><button type="submit" class="btn-gold"><i class="fas fa-save me-1"></i>Save All Website Changes</button></div>
+          </div>
+        </form>
+      </section>
+
+      <!-- TAB: POLICIES & CLEANING BUSINESS RISKS -->
+      <section id="tab-policies" class="tab-pane-sec">
+        <div class="panel-card mb-4">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <div>
+              <h5 class="fw-bold mb-1"><i class="fas fa-exclamation-triangle me-2" style="color:var(--gold);"></i>Cleaning Business Risk Register &amp; Safeguards</h5>
+              <small class="text-muted">Key operational, legal, and financial risks in residential &amp; commercial cleaning — and how your site policies protect Bovic Premier.</small>
+            </div>
+            <div class="d-flex gap-2">
+              <a href="terms.html" target="_blank" rel="noopener" class="btn btn-sm btn-outline-dark">View Terms &amp; Risks Page</a>
+              <a href="privacy.html" target="_blank" rel="noopener" class="btn btn-sm btn-outline-dark">View Privacy Page</a>
+            </div>
+          </div>
+          <div class="row g-3 small">
+            <div class="col-md-6"><div class="p-3 rounded border h-100" style="background:var(--cream);"><strong>1. Property Damage &amp; Fragile Items</strong><br>Breakage of art, collectibles, TVs, or brittle blinds.<br><span class="text-success">Safeguard:</span> Terms exclude unstable items, require securing valuables, set 48-hr claim window, and cap liability (covered via general liability insurance).</div></div>
+            <div class="col-md-6"><div class="p-3 rounded border h-100" style="background:var(--cream);"><strong>2. Surface &amp; Chemical Etching</strong><br>Acidic/abrasive cleaners damaging natural marble, travertine, brass, or waxed hardwood.<br><span class="text-success">Safeguard:</span> Pre-existing wear documented via before/after photos; clients disclose specialty finishes before service.</div></div>
+            <div class="col-md-6"><div class="p-3 rounded border h-100" style="background:var(--cream);"><strong>3. Biohazard, Mold &amp; Height Injuries</strong><br>Worker exposure to blood/bodily fluids, pet waste, mold, or ladder falls.<br><span class="text-success">Safeguard:</span> Policy explicitly bars biohazards, mold remediation, 30+ lb lifting, and ladders above 2-step stools.</div></div>
+            <div class="col-md-6"><div class="p-3 rounded border h-100" style="background:var(--cream);"><strong>4. Key, Alarm &amp; Gate Access Liability</strong><br>Lost keys, false alarm fines, or unauthorized disclosure of entry codes.<br><span class="text-success">Safeguard:</span> Entry notes hidden behind authenticated worker login; Privacy Policy limits access strictly to assigned cleaner.</div></div>
+            <div class="col-md-6"><div class="p-3 rounded border h-100" style="background:var(--cream);"><strong>5. Pet Safety &amp; Bites / Escapes</strong><br>Anxious pets reacting to vacuums or slipping out open doors.<br><span class="text-success">Safeguard:</span> Mandatory booking disclosure of pets; Terms require crating/securing anxious animals during service.</div></div>
+            <div class="col-md-6"><div class="p-3 rounded border h-100" style="background:var(--cream);"><strong>6. Late Cancellations, Lockouts &amp; Underquoted Homes</strong><br>Lost crew hours from last-minute cancels, locked doors, or heavily soiled homes booked at base price.<br><span class="text-success">Safeguard:</span> 24-hr cancellation / $50 lockout policy + pre-work walkthrough adjustment clause in Terms.</div></div>
+            <div class="col-md-6"><div class="p-3 rounded border h-100" style="background:var(--cream);"><strong>7. Chargebacks &amp; Unpaid Invoices</strong><br>Disputed card charges or unpaid Pay-Later bookings.<br><span class="text-success">Safeguard:</span> Policy terms agreed at checkout + timestamped checklists &amp; before/after photo verification for disputes.</div></div>
+            <div class="col-md-6"><div class="p-3 rounded border h-100" style="background:var(--cream);"><strong>8. Worker Classification, Bonding &amp; Insurance</strong><br>Misclassification fines or uninsured cleaner accidents (Georgia W-2 vs 1099 &amp; Workers' Comp rules).<br><span class="text-success">Safeguard:</span> Maintain active General Liability + Janitorial Bond + Workers' Comp as team scales, and clear staff onboarding.</div></div>
+          </div>
+        </div>
+
+        <form id="policies-cms-form" class="panel-card">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <div>
+              <h5 class="fw-bold mb-0">Edit Live Policies &amp; Risk Disclosures</h5>
+              <small class="text-muted">Changes save straight to <strong>terms.html</strong> and <strong>privacy.html</strong>.</small>
+            </div>
+            <button type="submit" class="btn-gold"><i class="fas fa-save me-1"></i>Save Policies</button>
+          </div>
+          <div class="row g-3">
+            <div class="col-lg-6"><label class="small fw-semibold">Privacy Policy — Overview</label><textarea class="form-control form-control-sm" id="pol-privacy-intro" rows="3"></textarea></div>
+            <div class="col-lg-6"><label class="small fw-semibold">Privacy Policy — Data &amp; Payment Collection</label><textarea class="form-control form-control-sm" id="pol-privacy-collection" rows="3"></textarea></div>
+            <div class="col-lg-6"><label class="small fw-semibold">Privacy Policy — Before &amp; After Photos</label><textarea class="form-control form-control-sm" id="pol-privacy-photos" rows="3"></textarea></div>
+            <div class="col-lg-6"><label class="small fw-semibold">Privacy Policy — Security &amp; Client Rights</label><textarea class="form-control form-control-sm" id="pol-privacy-security" rows="3"></textarea></div>
+            <div class="col-lg-6"><label class="small fw-semibold">Terms — Booking &amp; Walkthrough Pricing</label><textarea class="form-control form-control-sm" id="pol-terms-booking" rows="3"></textarea></div>
+            <div class="col-lg-6"><label class="small fw-semibold">Terms — 24-Hr Cancellation &amp; Lockout Fee</label><textarea class="form-control form-control-sm" id="pol-terms-cancellation" rows="3"></textarea></div>
+            <div class="col-lg-6"><label class="small fw-semibold">Terms — 48-Hr Satisfaction Guarantee</label><textarea class="form-control form-control-sm" id="pol-terms-guarantee" rows="3"></textarea></div>
+            <div class="col-lg-6"><label class="small fw-semibold">Terms — Payment &amp; Chargebacks</label><textarea class="form-control form-control-sm" id="pol-terms-payment" rows="3"></textarea></div>
+            <div class="col-12"><label class="small fw-semibold">Terms — Health, Safety &amp; Service Exclusions</label><textarea class="form-control form-control-sm" id="pol-terms-exclusions" rows="3"></textarea></div>
+            <div class="col-12"><label class="small fw-semibold">Terms — Cleaning Business Risks &amp; Liability Disclosures</label><textarea class="form-control form-control-sm" id="pol-terms-risks" rows="4"></textarea></div>
+          </div>
+          <div class="text-end mt-3"><button type="submit" class="btn-gold"><i class="fas fa-save me-1"></i>Save Policies</button></div>
+        </form>
+      </section>
+
+      <!-- TAB 4: MANAGE ADMINS -->
+      <section id="tab-admins" class="tab-pane-sec">
+        <div class="row g-4">
+          <div class="col-lg-4">
+            <div class="panel-card">
+              <h5 class="fw-bold mb-3"><i class="fas fa-user-shield me-1" style="color:var(--gold);"></i>Create Admin</h5>
+              <form id="add-admin-form">
+                <div class="mb-2"><label class="small fw-semibold">Full Name *</label><input class="form-control form-control-sm" name="name" required></div>
+                <div class="mb-2"><label class="small fw-semibold">Email *</label><input type="email" class="form-control form-control-sm" name="email" required></div>
+                <div class="mb-2"><label class="small fw-semibold">Temporary Password (min 10 chars) *</label><input type="password" class="form-control form-control-sm" name="password" minlength="10" placeholder="Strong initial password" required></div>
+                <div class="mb-3"><label class="small fw-semibold">Phone</label><input class="form-control form-control-sm" name="phone" placeholder="678-799-4634"></div>
+                <button type="submit" class="btn-gold btn-sm w-100">Add Admin</button>
+              </form>
+            </div>
+          </div>
+          <div class="col-lg-8">
+            <div class="panel-card">
+              <h5 class="fw-bold mb-3">Admin &amp; Super Admin Accounts</h5>
+              <div class="table-responsive">
+                <table class="table table-sm align-middle small">
+                  <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
+                  <tbody id="admins-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: STRIPE & PAYPAL -->
+      <section id="tab-payments" class="tab-pane-sec">
+        <form id="payments-form">
+          <div class="panel-card mb-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+              <div>
+                <h5 class="fw-bold mb-1">Stripe &amp; PayPal Payment Links</h5>
+                <small class="text-muted">Configure your Stripe and PayPal payment links shown on <strong>book.html</strong> and emailed for quotes.</small>
+              </div>
+              <button type="submit" class="btn-gold"><i class="fas fa-save me-1"></i>Save Payment Settings</button>
+            </div>
+            <div id="pay-status-banner" class="alert alert-light border small mb-0"></div>
+          </div>
+
+          <div class="row g-4 mb-4">
+            <div class="col-lg-6">
+              <div class="panel-card h-100">
+                <h6 class="fw-bold mb-3"><i class="fab fa-stripe fa-lg me-2" style="color:#635bff;"></i>Stripe Checkout &amp; Payment Links</h6>
+                <div class="form-check form-switch mb-2">
+                  <input class="form-check-input" type="checkbox" id="p-stripe-api">
+                  <label class="form-check-label small fw-semibold" for="p-stripe-api">Enable Stripe API Checkout <span id="stripe-api-badge" class="badge bg-secondary ms-1"></span></label>
+                </div>
+                <p class="text-muted small mb-3">Webhook URL: <code id="webhook-url"></code> <button type="button" class="btn btn-link btn-sm p-0 ms-1" id="copy-webhook-btn">Copy</button></p>
+
+                <div class="form-check form-switch mb-2">
+                  <input class="form-check-input" type="checkbox" id="p-stripe-links">
+                  <label class="form-check-label small fw-semibold" for="p-stripe-links">Enable Stripe Payment Links (<code>https://buy.stripe.com/...</code>)</label>
+                </div>
+                <label class="small fw-semibold text-muted">Default / Fallback Stripe Payment Link</label>
+                <input type="url" id="p-stripe-default" class="form-control form-control-sm" placeholder="https://buy.stripe.com/your-link">
+              </div>
+            </div>
+
+            <div class="col-lg-6">
+              <div class="panel-card h-100">
+                <h6 class="fw-bold mb-3"><i class="fab fa-paypal fa-lg me-2" style="color:#003087;"></i>PayPal &amp; Pay Later</h6>
+                <div class="form-check form-switch mb-2">
+                  <input class="form-check-input" type="checkbox" id="p-paypal-enabled">
+                  <label class="form-check-label small fw-semibold" for="p-paypal-enabled">Enable PayPal Payments</label>
+                </div>
+                <label class="small fw-semibold text-muted">PayPal.me or Default PayPal Link</label>
+                <input type="url" id="p-paypal-link" class="form-control form-control-sm mb-1" placeholder="https://paypal.me/boviccleaning">
+                <small class="text-muted d-block mb-3">With <code>https://paypal.me/yourname</code>, the exact booking amount is added automatically.</small>
+
+                <div class="form-check form-switch mb-2">
+                  <input class="form-check-input" type="checkbox" id="p-later-enabled">
+                  <label class="form-check-label small fw-semibold" for="p-later-enabled">Allow "Pay Later" (Cash / Zelle / Card on-site)</label>
+                </div>
+                <input type="text" id="p-later-label" class="form-control form-control-sm" placeholder="Pay after cleaning (cash, Zelle, or card on site)">
+              </div>
+            </div>
+          </div>
+
+          <div class="panel-card">
+            <h6 class="fw-bold mb-1">Per-Package Stripe &amp; PayPal Links (Optional)</h6>
+            <p class="small text-muted mb-3">Paste a dedicated Stripe Payment Link or PayPal link per website package, or leave blank to use your default link above.</p>
+            <div class="table-responsive">
+              <table class="table table-sm align-middle small">
+                <thead class="table-light">
+                  <tr><th>Service</th><th>Size &amp; Plan</th><th>Price</th><th>Stripe Payment Link</th><th>PayPal Link (Optional)</th></tr>
+                </thead>
+                <tbody id="pay-items-tbody"></tbody>
+              </table>
+            </div>
+            <div class="text-end mt-3"><button type="submit" class="btn-gold"><i class="fas fa-save me-1"></i>Save Payment Settings</button></div>
+          </div>
+        </form>
+      </section>
+
+      <!-- TAB: PLUGINS & SEASONAL PROMOS -->
+      <section id="tab-plugins" class="tab-pane-sec">
+        <form id="plugins-cms-form">
+          <div class="panel-card mb-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <div>
+                <h5 class="fw-bold mb-1">Seasonal Campaign Plugins (Black November &amp; December Christmas)</h5>
+                <small class="text-muted">Toggle promotional banners across every public page and activate server-verified promo discounts at checkout. Currently live: <strong id="plg-live-status" class="text-success">Checking...</strong></small>
+              </div>
+              <button type="submit" class="btn-gold"><i class="fas fa-save me-1"></i>Save Plugin Settings</button>
+            </div>
+          </div>
+
+          <div class="row g-4">
+            <div class="col-lg-6">
+              <div class="panel-card h-100" style="border-top:4px solid #14171a;">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                  <div>
+                    <h6 class="fw-bold mb-0"><i class="fas fa-tag me-2 text-warning"></i>Black November Plugin</h6>
+                    <small class="text-muted">Runs Nov 1 – Nov 30 (or Force Active anytime)</small>
+                  </div>
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="plg-nov-enabled">
+                    <label class="form-check-label small fw-bold" for="plg-nov-enabled">Enabled</label>
+                  </div>
+                </div>
+                <div class="row g-2">
+                  <div class="col-md-6">
+                    <label class="small fw-semibold">Schedule Mode</label>
+                    <select class="form-select form-select-sm" id="plg-nov-mode">
+                      <option value="auto">Auto (Active all November)</option>
+                      <option value="on">Force Active Now (Preview / Extended)</option>
+                      <option value="off">Paused / Off</option>
+                    </select>
+                  </div>
+                  <div class="col-md-6"><label class="small fw-semibold">Promo Badge</label><input class="form-control form-control-sm" id="plg-nov-badge"></div>
+                  <div class="col-12"><label class="small fw-semibold">Campaign Headline</label><input class="form-control form-control-sm" id="plg-nov-title"></div>
+                  <div class="col-12"><label class="small fw-semibold">Sub-message</label><textarea class="form-control form-control-sm" id="plg-nov-sub" rows="2"></textarea></div>
+                  <div class="col-md-4"><label class="small fw-semibold">Promo Code</label><input class="form-control form-control-sm text-uppercase" id="plg-nov-code"></div>
+                  <div class="col-md-4"><label class="small fw-semibold">Discount (%)</label><input type="number" min="1" max="50" class="form-control form-control-sm" id="plg-nov-pct"></div>
+                  <div class="col-md-4"><label class="small fw-semibold">End Date</label><input type="date" class="form-control form-control-sm" id="plg-nov-end"></div>
+                  <div class="col-12"><label class="small fw-semibold">Button CTA Text</label><input class="form-control form-control-sm" id="plg-nov-cta"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-lg-6">
+              <div class="panel-card h-100" style="border-top:4px solid #a81d2b;">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                  <div>
+                    <h6 class="fw-bold mb-0"><i class="fas fa-snowflake me-2 text-danger"></i>December Christmas Plugin</h6>
+                    <small class="text-muted">Runs Dec 1 – Dec 31 (or Force Active to preview)</small>
+                  </div>
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="plg-dec-enabled">
+                    <label class="form-check-label small fw-bold" for="plg-dec-enabled">Enabled</label>
+                  </div>
+                </div>
+                <div class="row g-2">
+                  <div class="col-md-6">
+                    <label class="small fw-semibold">Schedule Mode</label>
+                    <select class="form-select form-select-sm" id="plg-dec-mode">
+                      <option value="auto">Auto (Active all December)</option>
+                      <option value="on">Force Active Now (Preview / Early Access)</option>
+                      <option value="off">Paused / Off</option>
+                    </select>
+                  </div>
+                  <div class="col-md-6"><label class="small fw-semibold">Holiday Badge</label><input class="form-control form-control-sm" id="plg-dec-badge"></div>
+                  <div class="col-12"><label class="small fw-semibold">Christmas Headline</label><input class="form-control form-control-sm" id="plg-dec-title"></div>
+                  <div class="col-12"><label class="small fw-semibold">Holiday Sub-message</label><textarea class="form-control form-control-sm" id="plg-dec-sub" rows="2"></textarea></div>
+                  <div class="col-md-4"><label class="small fw-semibold">Promo Code</label><input class="form-control form-control-sm text-uppercase" id="plg-dec-code"></div>
+                  <div class="col-md-4"><label class="small fw-semibold">Discount (%)</label><input type="number" min="1" max="50" class="form-control form-control-sm" id="plg-dec-pct"></div>
+                  <div class="col-md-4"><label class="small fw-semibold">End Date</label><input type="date" class="form-control form-control-sm" id="plg-dec-end"></div>
+                  <div class="col-12">
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="plg-dec-decor">
+                      <label class="form-check-label small fw-semibold" for="plg-dec-decor">Christmas decorations: twinkling lights, falling snow &amp; animated Santa hat on the logo</label>
+                    </div>
+                  </div>
+                  <div class="col-12"><label class="small fw-semibold">Button CTA Text</label><input class="form-control form-control-sm" id="plg-dec-cta"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+      </section>
+
+      <!-- TAB: SEO, METADATA & GOOGLE ADS -->
+      <section id="tab-seo" class="tab-pane-sec">
+        <form id="seo-cms-form">
+          <div class="panel-card mb-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <div>
+                <h5 class="fw-bold mb-1">SEO Metadata, Sitemap &amp; Google Ads Tracking</h5>
+                <small class="text-muted">Manage search engine metadata, Open Graph tags, LocalBusiness JSON-LD schema, GA4 &amp; Google Ads conversion IDs. Live endpoints: <a href="/sitemap.xml" target="_blank" rel="noopener"><code>/sitemap.xml</code></a> &middot; <a href="/robots.txt" target="_blank" rel="noopener"><code>/robots.txt</code></a></small>
+              </div>
+              <button type="submit" class="btn-gold"><i class="fas fa-save me-1"></i>Save SEO &amp; Ads Settings</button>
+            </div>
+          </div>
+
+          <div class="row g-4">
+            <div class="col-lg-6">
+              <div class="panel-card h-100">
+                <h6 class="fw-bold mb-3"><i class="fas fa-search me-2 text-success"></i>Search Engine Optimization (SEO) &amp; Metadata</h6>
+                <div class="row g-2">
+                  <div class="col-12"><label class="small fw-semibold">Default Meta Title (Homepage &amp; Fallback)</label><input class="form-control form-control-sm" id="seo-default-title"></div>
+                  <div class="col-md-6"><label class="small fw-semibold">Brand Title Suffix</label><input class="form-control form-control-sm" id="seo-title-suffix"></div>
+                  <div class="col-md-6"><label class="small fw-semibold">Canonical Base URL</label><input type="url" class="form-control form-control-sm" id="seo-canonical" placeholder="https://boviccleaning.com"></div>
+                  <div class="col-12">
+                    <div class="d-flex justify-content-between"><label class="small fw-semibold">Meta Description</label><small class="text-muted" id="seo-desc-count">0 / 160</small></div>
+                    <textarea class="form-control form-control-sm" id="seo-meta-desc" rows="3"></textarea>
+                  </div>
+                  <div class="col-12"><label class="small fw-semibold">SEO Focus Keywords (comma separated)</label><textarea class="form-control form-control-sm" id="seo-keywords" rows="2"></textarea></div>
+                  <div class="col-md-8"><label class="small fw-semibold">Default Social Share Image (Open Graph)</label><input class="form-control form-control-sm" id="seo-og-image"></div>
+                  <div class="col-md-4"><label class="small fw-semibold">Schema Price Range</label><input class="form-control form-control-sm" id="seo-price-range" placeholder="$$"></div>
+                  <div class="col-12 pt-1">
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="seo-robots-index">
+                      <label class="form-check-label small fw-semibold" for="seo-robots-index">Allow Search Engines to Index Website (<code>index, follow</code>)</label>
+                    </div>
+                  </div>
+                </div>
+                <div class="mt-3 p-3 rounded border" style="background:#fafafa;">
+                  <div class="small text-muted mb-1">Google Search Snippet Preview</div>
+                  <div id="seo-serp-title" class="fw-semibold" style="color:#1a0dab;font-size:16px;"></div>
+                  <div id="seo-serp-url" class="small" style="color:#006621;"></div>
+                  <div id="seo-serp-desc" class="small text-muted mt-1"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-lg-6">
+              <div class="panel-card h-100">
+                <h6 class="fw-bold mb-3"><i class="fab fa-google me-2 text-primary"></i>Google Ads, Analytics &amp; Tracking IDs</h6>
+                <p class="small text-muted">Enter only your official tracking IDs — scripts load cleanly without raw HTML injection. Booking conversion events fire automatically when a customer completes checkout.</p>
+                <div class="row g-2">
+                  <div class="col-md-6"><label class="small fw-semibold">Google Ads Conversion ID</label><input class="form-control form-control-sm" id="mkt-gads-id" placeholder="AW-1234567890"></div>
+                  <div class="col-md-6"><label class="small fw-semibold">Google Ads Booking Conversion Label</label><input class="form-control form-control-sm" id="mkt-gads-label" placeholder="AbCdEfGhIjKlMnOp"></div>
+                  <div class="col-md-6"><label class="small fw-semibold">Google Analytics 4 (GA4) ID</label><input class="form-control form-control-sm" id="mkt-ga4-id" placeholder="G-XXXXXXXXXX"></div>
+                  <div class="col-md-6"><label class="small fw-semibold">Google Tag Manager ID (Optional)</label><input class="form-control form-control-sm" id="mkt-gtm-id" placeholder="GTM-XXXXXXX"></div>
+                  <div class="col-12"><label class="small fw-semibold">Google Search Console Verification Code</label><input class="form-control form-control-sm" id="mkt-gsc-token" placeholder="content value from Google meta tag"></div>
+                  <div class="col-12"><label class="small fw-semibold">Meta / Facebook Pixel ID (Optional digits)</label><input class="form-control form-control-sm" id="mkt-fb-pixel" placeholder="123456789012345"></div>
+                </div>
+                <div class="alert alert-light border small mt-3 mb-0">
+                  <strong>Automatic Conversion Events Fired on <code>book.html</code>:</strong>
+                  <ul class="mb-0 mt-1 ps-3">
+                    <li><code>begin_checkout</code> when submitting booking or checkout</li>
+                    <li><code>purchase</code> (GA4) + <code>conversion</code> (<code>AW-.../label</code>) with booking amount &amp; booking code upon confirmation</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <div class="panel-card">
+                <h6 class="fw-bold mb-1"><i class="fas fa-envelope-open-text me-2 text-primary"></i>Automatic Follow-up Emails</h6>
+                <p class="small text-muted mb-3">Sent automatically after a job is marked <strong>Completed</strong>, only between 9am and 7pm. Every email has an unsubscribe link, and customers who unsubscribe still get booking confirmations and reminders.
+                  Email service: <strong id="fu-provider">…</strong></p>
+                <div class="row g-3">
+                  <div class="col-lg-6">
+                    <div class="form-check form-switch mb-2">
+                      <input class="form-check-input" type="checkbox" id="fu-thanks-on">
+                      <label class="form-check-label small fw-semibold" for="fu-thanks-on">Thank-you + Google review request</label>
+                    </div>
+                    <div class="row g-2">
+                      <div class="col-5"><label class="small fw-semibold">Send after (hours)</label><input type="number" min="1" max="168" class="form-control form-control-sm" id="fu-thanks-hours"></div>
+                      <div class="col-7"><label class="small fw-semibold">Google review link</label><input class="form-control form-control-sm" id="fu-review-url" placeholder="https://g.page/r/.../review"></div>
+                    </div>
+                    <div class="small text-muted mt-1">Leave the link empty to use the Google Business link from Social settings. Weekly and every-2-weeks customers get this at most once a month.</div>
+                  </div>
+                  <div class="col-lg-6">
+                    <div class="form-check form-switch mb-2">
+                      <input class="form-check-input" type="checkbox" id="fu-rebook-on">
+                      <label class="form-check-label small fw-semibold" for="fu-rebook-on">"Time for another clean?" reminder (one-time customers)</label>
+                    </div>
+                    <div class="row g-2">
+                      <div class="col-5"><label class="small fw-semibold">Days after cleaning</label><input type="number" min="7" max="180" class="form-control form-control-sm" id="fu-rebook-days"></div>
+                      <div class="col-7"><label class="small fw-semibold">Offer line (optional)</label><input class="form-control form-control-sm" id="fu-rebook-offer" maxlength="160" placeholder="Use code WELCOMEBACK for 10% off"></div>
+                    </div>
+                    <div class="small text-muted mt-1">Skipped if the customer has already booked again.</div>
+                  </div>
+                </div>
+                <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
+                  <button type="button" class="btn btn-sm btn-outline-secondary" id="fu-test-btn"><i class="fas fa-paper-plane me-1"></i>Send me sample emails</button>
+                  <span class="small text-muted" id="fu-test-msg">Sends both emails to your login email so you can see them. Save first if you changed anything.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+      </section>
+
+      <!-- TAB 6: CALENDAR BLOCKING -->
+      <section id="tab-calendar" class="tab-pane-sec">
+        <div class="row g-4">
+          <div class="col-lg-4">
+            <div class="panel-card">
+              <h5 class="fw-bold mb-2">Block a Date</h5>
+              <p class="small text-muted">Blocked dates are disabled on the public booking calendar.</p>
+              <form id="block-date-form">
+                <div class="mb-2"><label class="small fw-semibold">Date</label><input type="date" class="form-control form-control-sm" name="date" required></div>
+                <div class="mb-3"><label class="small fw-semibold">Reason</label><input class="form-control form-control-sm" name="reason" placeholder="Holiday / Fully booked"></div>
+                <button type="submit" class="btn btn-danger btn-sm w-100 rounded-pill">Block Date</button>
+              </form>
+            </div>
+          </div>
+          <div class="col-lg-8">
+            <div class="panel-card">
+              <h5 class="fw-bold mb-3">Blocked Dates</h5>
+              <table class="table table-sm align-middle small">
+                <thead><tr><th>Date</th><th>Reason</th><th class="text-end">Action</th></tr></thead>
+                <tbody id="blocked-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 7: EMAIL LOGS -->
+      <section id="tab-emails" class="tab-pane-sec">
+        <div class="panel-card">
+          <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <h5 class="fw-bold mb-0">Email &amp; Reminder Activity Log</h5>
+            <span id="smtp-status-pill" class="badge bg-secondary"></span>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle small">
+              <thead><tr><th>Time</th><th>Type</th><th>Recipient</th><th>Subject</th><th>Status</th></tr></thead>
+              <tbody id="emails-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 8: SECURITY & AUDIT LOG (SUPER ADMIN ONLY) -->
+      <section id="tab-security" class="tab-pane-sec">
+        <div class="panel-card mb-4">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <div>
+              <h5 class="fw-bold mb-0"><i class="fas fa-shield-alt me-2" style="color:var(--green);"></i>Security Posture</h5>
+              <small class="text-muted">Active protections guarding the Admin &amp; Operations portal</small>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-danger" id="logout-all-btn"><i class="fas fa-sign-out-alt me-1"></i>Sign Out All Devices</button>
+          </div>
+          <div class="row g-2" id="sec-posture-grid"></div>
+        </div>
+        <div class="panel-card">
+          <h5 class="fw-bold mb-3">Security &amp; Admin Audit Log</h5>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle small">
+              <thead><tr><th>Time</th><th>Action</th><th>Actor</th><th>Target</th><th>IP</th><th>Details</th></tr></thead>
+              <tbody id="audit-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<!-- ASSIGN WORKER MODAL -->
+<div class="modal fade" id="assignModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header" style="background:var(--dark);color:#fff;">
+        <h5 class="modal-title fw-bold" style="color:var(--gold);"><i class="fas fa-user-check me-2"></i>Assign Cleaning Pro</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="assign-job-banner" class="p-3 rounded mb-3 small" style="background:var(--cream);border:1px solid var(--border);"></div>
+        <div class="row g-2 mb-3">
+          <div class="col-md-8"><input type="text" id="assign-note" class="form-control form-control-sm" placeholder="Optional dispatch note for cleaner (gate code, extra tools...)"></div>
+          <div class="col-md-4 d-flex align-items-center">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="assign-notify" checked>
+              <label class="form-check-label small" for="assign-notify">Email cleaner &amp; customer</label>
+            </div>
+          </div>
+        </div>
+        <div id="assign-candidates"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BOOKING DETAIL DRAWER -->
+<div class="drawer-backdrop" id="drawer-backdrop"></div>
+<aside class="detail-drawer" id="detail-drawer">
+  <div class="drawer-head">
+    <div>
+      <div class="small" style="color:var(--gold);" id="dr-code"></div>
+      <h5 class="mb-0 text-white fw-bold" id="dr-title">Booking Details</h5>
+    </div>
+    <button type="button" class="btn-close btn-close-white" id="drawer-close-btn"></button>
+  </div>
+  <div class="drawer-body" id="drawer-body"></div>
+</aside>
+
+<!-- EDIT USER MODAL -->
+<div class="modal fade" id="editUserModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title fw-bold">Edit Team Member</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <form id="edit-user-form" class="modal-body">
+        <input type="hidden" name="id" id="eu-id">
+        <div class="mb-2"><label class="small fw-semibold">Name</label><input class="form-control form-control-sm" name="name" id="eu-name" required></div>
+        <div class="mb-2"><label class="small fw-semibold">Phone</label><input class="form-control form-control-sm" name="phone" id="eu-phone"></div>
+        <div class="mb-2"><label class="small fw-semibold">Service Areas</label><input class="form-control form-control-sm" name="service_areas" id="eu-areas"></div>
+        <div class="mb-3"><label class="small fw-semibold">Reset Password (optional, min 10 chars)</label><input type="password" class="form-control form-control-sm" name="password" id="eu-pass" placeholder="Leave blank to keep current"></div>
+        <button type="submit" class="btn-emerald w-100">Save Changes</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- CHANGE PASSWORD MODAL -->
+<div class="modal fade" id="passwordModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title fw-bold">Change My Password</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <form id="my-pw-form" class="modal-body">
+        <div class="mb-2"><label class="small fw-semibold">Current Password</label><input type="password" class="form-control form-control-sm" name="current_password" autocomplete="current-password" required></div>
+        <div class="mb-3"><label class="small fw-semibold">New Strong Password (min 10 chars)</label><input type="password" class="form-control form-control-sm" name="new_password" autocomplete="new-password" minlength="10" required></div>
+        <button type="submit" class="btn-gold w-100">Update Password</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="toast-box" id="toast"></div>
+
+<script src="assets/js/bootstrap.bundle.min.js"></script>
+<script src="assets/js/admin-portal.js"></script>
+</body>
+</html>

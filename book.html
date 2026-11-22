@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Book Online &amp; Checkout || Bovic Premier Cleaning Pros LLC</title>
+    <meta name="description" content="Schedule standard, deep, move-out, or Airbnb cleaning online in North Atlanta with instant calendar slots, promo discounts, and Stripe or PayPal checkout." />
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/images/favicons/favicon-32x32.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/images/favicons/apple-touch-icon.png" />
+  <link rel="manifest" href="assets/images/favicons/site.webmanifest" />
+  <meta name="theme-color" content="#0c342f" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Rubik:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="assets/css/font-awesome-all.css" />
+  <style>
+    :root {
+      --dark: #0c342f;
+      --green: #0a7158;
+      --pine: #0e3026;
+      --gold: #f1ab21;
+      --cream: #f7f4f1;
+      --border: #ded8cf;
+      --muted: #595752;
+    }
+    body { font-family: 'Poppins', sans-serif; background: var(--cream); color: var(--dark); margin: 0; }
+    h1, h2, h3, h4, h5 { font-family: 'Rubik', sans-serif; }
+    .topbar { background: var(--dark); color: #fff; padding: 14px 0; border-bottom: 3px solid var(--gold); }
+    .topbar a { color: #fff; text-decoration: none; font-weight: 500; }
+    .topbar .nav-link-item { color: #cfe3dd; margin-left: 22px; font-size: 14px; transition: color .2s; }
+    .topbar .nav-link-item:hover { color: var(--gold); }
+    .hero-band { background: linear-gradient(135deg, var(--dark) 0%, var(--pine) 60%, var(--green) 100%); color: #fff; padding: 42px 0 36px; }
+    .hero-band .tagline { color: var(--gold); font-family: 'Rubik', sans-serif; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
+    .hero-band h1 { font-weight: 700; font-size: clamp(28px, 4vw, 42px); margin-bottom: 8px; color: #fff; }
+    .hero-band p { color: #d6e7e2; margin: 0; max-width: 68ch; font-size: 15px; }
+    .card-box { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 24px; box-shadow: 0 8px 26px rgba(12,52,47,.05); margin-bottom: 20px; }
+    .step-badge { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: var(--gold); color: var(--dark); font-weight: 700; font-size: 14px; margin-right: 10px; flex-shrink: 0; }
+    .section-h { font-weight: 700; font-size: 18px; display: flex; align-items: center; margin-bottom: 16px; color: var(--dark); }
+    .choice-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 10px; }
+    .choice-btn { border: 2px solid var(--border); background: #fff; border-radius: 10px; padding: 13px 12px; text-align: left; cursor: pointer; transition: all .15s; }
+    .choice-btn:hover { border-color: var(--green); }
+    .choice-btn.active { border-color: var(--dark); background: #eef6f4; box-shadow: 0 0 0 2px rgba(10,113,88,.18); }
+    .choice-btn strong { display: block; font-size: 14px; color: var(--dark); font-weight: 600; }
+    .choice-btn small { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .pay-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+    .pay-btn { display: flex; align-items: flex-start; gap: 12px; border: 2px solid var(--border); background: #fff; border-radius: 10px; padding: 14px; text-align: left; cursor: pointer; transition: all .15s; }
+    .pay-btn:hover { border-color: var(--green); }
+    .pay-btn.active { border-color: var(--dark); background: #eef6f4; }
+    .pay-btn i { font-size: 20px; color: var(--green); margin-top: 2px; }
+    /* Calendar */
+    .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .cal-header button { border: 1px solid var(--border); background: #fff; border-radius: 8px; padding: 6px 12px; font-weight: 600; cursor: pointer; color: var(--dark); }
+    .cal-header button:hover { border-color: var(--green); }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; }
+    .cal-dow { font-size: 12px; font-weight: 600; color: var(--muted); padding: 6px 0; }
+    .cal-day { padding: 10px 4px; border-radius: 8px; border: 1px solid var(--border); background: #fff; font-weight: 600; font-size: 14px; cursor: pointer; transition: all .15s; color: var(--dark); }
+    .cal-day:hover:not(:disabled) { border-color: var(--green); background: #eef6f4; }
+    .cal-day.selected { background: var(--dark); color: var(--gold); border-color: var(--dark); }
+    .cal-day:disabled { background: #efece7; color: #b5afa6; cursor: not-allowed; border-color: transparent; text-decoration: line-through; }
+    .slot-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px; }
+    .slot-btn { border: 2px solid var(--border); background: #fff; border-radius: 10px; padding: 11px; font-weight: 600; cursor: pointer; color: var(--dark); display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
+    .slot-btn small { font-weight: 500; font-size: 11px; color: var(--muted); }
+    .slot-btn.selected { background: var(--green); color: #fff; border-color: var(--green); }
+    .slot-btn.selected small { color: #dff2ec; }
+    .slot-btn:disabled { opacity: .45; cursor: not-allowed; text-decoration: line-through; }
+    /* Summary */
+    .summary-card { position: sticky; top: 20px; background: var(--dark); color: #fff; border-radius: 14px; padding: 26px; border: 1px solid var(--pine); box-shadow: 0 14px 36px rgba(12,52,47,.16); }
+    .summary-row { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px dashed rgba(255,255,255,.16); font-size: 14px; }
+    .summary-row span { color: #c4dcd6; }
+    .summary-total { font-family: 'Rubik', sans-serif; font-size: 32px; font-weight: 700; color: var(--gold); margin: 16px 0; }
+    .btn-pay { width: 100%; background: var(--gold); color: var(--dark); border: 0; border-radius: 10px; padding: 14px 20px; font-weight: 700; font-size: 16px; cursor: pointer; transition: background .2s, transform .15s; text-decoration: none; display: inline-flex; justify-content: center; align-items: center; gap: 8px; }
+    .btn-pay:hover { background: #e09c17; color: var(--dark); transform: translateY(-1px); }
+    .btn-pay:disabled { opacity: .6; cursor: wait; transform: none; }
+    .trust-note { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; color: #cfe3dd; margin-top: 12px; }
+    .status-banner { background: #fff; border-radius: 16px; padding: 36px; text-align: center; border: 2px solid var(--green); max-width: 680px; margin: 30px auto; box-shadow: 0 14px 40px rgba(12,52,47,.08); }
+  </style>
+    <!-- SEO & Open Graph Metadata -->
+    <meta name="keywords" content="house cleaning Atlanta, Buckhead maid service, Sandy Springs deep cleaning, Roswell move out cleaning, Alpharetta commercial office cleaning" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://boviccleaning.com/book.html" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Bovic Premier Cleaning Pros LLC" />
+    <meta property="og:title" content="Book Cleaning Online & Instant Calendar | Bovic Premier Cleaning Pros LLC" />
+    <meta property="og:description" content="Schedule standard, deep, move-out, or Airbnb cleaning online in North Atlanta with instant calendar slots, promo discounts, and Stripe or PayPal checkout." />
+    <meta property="og:url" content="https://boviccleaning.com/book.html" />
+    <meta property="og:image" content="https://boviccleaning.com/assets/images/backgrounds/main-slider-1-1.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Book Cleaning Online & Instant Calendar | Bovic Premier Cleaning Pros LLC" />
+    <meta name="twitter:description" content="Schedule standard, deep, move-out, or Airbnb cleaning online in North Atlanta with instant calendar slots, promo discounts, and Stripe or PayPal checkout." />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="container d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <a href="index.html" class="d-flex align-items-center gap-2">
+      <img src="assets/images/resources/logo-1.png" alt="Bovic Premier Cleaning Pros LLC" style="height:40px;">
+    </a>
+    <nav class="d-flex align-items-center flex-wrap">
+      <a class="nav-link-item" href="index.html">Home</a>
+      <a class="nav-link-item" href="pricing.html">Pricing</a>
+      <a class="nav-link-item" href="contact.html">Contact</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero-band">
+  <div class="container">
+    <div class="tagline">Bovic Premier Cleaning Pros LLC · Buckhead to Alpharetta</div>
+    <h1>Book Your Cleaning Online</h1>
+    <p>Choose your service, pick an open date and arrival window on our live calendar, and check out with your preferred payment option. Confirmation and reminders are sent automatically.</p>
+  </div>
+</section>
+
+<main class="container py-5">
+  <div id="status-view" style="display:none;"></div>
+
+  <div id="booking-view" class="row g-4">
+    <div class="col-lg-8">
+      <!-- Step 1 -->
+      <div class="card-box">
+        <div class="section-h"><span class="step-badge">1</span> Choose Service, Home Size &amp; Frequency</div>
+        <label class="form-label fw-semibold small text-muted">Cleaning Service</label>
+        <div class="choice-grid mb-3" id="service-choices"></div>
+
+        <label class="form-label fw-semibold small text-muted">Property Size</label>
+        <div class="choice-grid mb-3" id="size-choices"></div>
+
+        <div id="freq-wrap">
+          <label class="form-label fw-semibold small text-muted">Frequency</label>
+          <div class="choice-grid" id="freq-choices"></div>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="card-box">
+        <div class="section-h"><span class="step-badge">2</span> Select Date &amp; Arrival Window</div>
+        <div class="cal-header">
+          <button type="button" id="prev-month" aria-label="Previous month"><i class="fas fa-chevron-left"></i></button>
+          <strong id="cal-month-label" style="font-size:17px;"></strong>
+          <button type="button" id="next-month" aria-label="Next month"><i class="fas fa-chevron-right"></i></button>
+        </div>
+        <div class="cal-grid mb-1">
+          <div class="cal-dow">Sun</div><div class="cal-dow">Mon</div><div class="cal-dow">Tue</div>
+          <div class="cal-dow">Wed</div><div class="cal-dow">Thu</div><div class="cal-dow">Fri</div><div class="cal-dow">Sat</div>
+        </div>
+        <div class="cal-grid" id="cal-days"></div>
+
+        <div class="mt-3" id="slot-section" style="display:none;">
+          <label class="form-label fw-semibold small text-muted">Available Slots for <span id="picked-date-label" class="text-dark"></span></label>
+          <div class="slot-grid" id="slot-grid"></div>
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="card-box">
+        <div class="section-h"><span class="step-badge">3</span> Your Contact &amp; Address Details</div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Full Name *</label>
+            <input type="text" id="c-name" class="form-control" placeholder="Jane Doe" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Email (for confirmation &amp; reminders) *</label>
+            <input type="email" id="c-email" class="form-control" placeholder="jane@example.com" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Phone Number *</label>
+            <input type="tel" id="c-phone" class="form-control" placeholder="678-555-0199" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Service Area *</label>
+            <select id="c-area" class="form-select">
+              <option>Buckhead</option>
+              <option>Sandy Springs</option>
+              <option>Roswell</option>
+              <option>Alpharetta</option>
+              <option>Other North Atlanta</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label small fw-semibold">Street Address &amp; Apt/Suite *</label>
+            <input type="text" id="c-address" class="form-control" placeholder="3340 Peachtree Rd NE, Atlanta, GA">
+          </div>
+          <div class="col-12">
+            <label class="form-label small fw-semibold">Notes (pets, gate codes, focus areas)</label>
+            <textarea id="c-notes" class="form-control" rows="2" placeholder="Gate code #1234, focus on kitchen backsplash..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 4: Payment Option -->
+      <div class="card-box" id="payment-card">
+        <div class="section-h"><span class="step-badge">4</span> Choose Payment Method</div>
+        <div class="pay-grid" id="payment-choices"></div>
+      </div>
+    </div>
+
+    <!-- Summary Sidebar -->
+    <div class="col-lg-4">
+      <div class="summary-card">
+        <h4 style="font-weight:700;margin-bottom:14px;color:#fff;">Booking Summary</h4>
+        <div class="summary-row"><span>Service</span><strong id="sum-service">—</strong></div>
+        <div class="summary-row"><span>Size</span><strong id="sum-size">—</strong></div>
+        <div class="summary-row"><span>Frequency</span><strong id="sum-freq">—</strong></div>
+        <div class="summary-row"><span>Date</span><strong id="sum-date">Select a date</strong></div>
+        <div class="summary-row"><span>Arrival</span><strong id="sum-time">Select a time</strong></div>
+        <div class="summary-row"><span>Payment</span><strong id="sum-method">—</strong></div>
+        <div class="summary-row" id="sum-discount-row" style="display:none;"><span id="sum-discount-label" style="color:var(--gold);">Promo Discount</span><strong id="sum-discount-val" style="color:var(--gold);">-$0.00</strong></div>
+        <div id="active-promo-chip" class="mt-2 mb-1" style="display:none;">
+          <button type="button" id="apply-active-promo-btn" class="btn btn-sm w-100 text-start fw-semibold" style="background:rgba(241,171,33,.16);border:1px dashed var(--gold);color:#fff;font-size:12px;"></button>
+        </div>
+        <div class="input-group input-group-sm mt-2">
+          <input type="text" id="promo-input" class="form-control" placeholder="Promo code (e.g. BLACKNOV20)" style="text-transform:uppercase;">
+          <button type="button" id="apply-promo-btn" class="btn btn-outline-warning fw-semibold">Apply</button>
+        </div>
+        <div id="promo-status" class="small mt-1" style="display:none;"></div>
+        <div class="summary-total" id="sum-price">$190.00</div>
+        <div id="checkout-error" class="alert alert-danger py-2 px-3 small" style="display:none;"></div>
+        <div class="form-check mb-3 small text-start">
+          <input class="form-check-input" type="checkbox" id="c-terms" checked>
+          <label class="form-check-label" for="c-terms" style="color:#d6e7e2;">
+            I agree to the <a href="terms.html" target="_blank" rel="noopener" style="color:var(--gold);text-decoration:underline;">Terms, Policies &amp; Risk Disclosure</a> and <a href="privacy.html" target="_blank" rel="noopener" style="color:var(--gold);text-decoration:underline;">Privacy Policy</a>.
+          </label>
+        </div>
+        <button type="button" id="checkout-btn" class="btn-pay">
+          <i class="fas fa-lock"></i><span>Continue to Checkout</span>
+        </button>
+        <div class="trust-note">
+          <i class="fas fa-shield-alt mt-1" style="color:var(--gold);"></i>
+          <span>Instant email confirmation &amp; automated 24-hour and 2-hour reminders. Call 678-799-4634 anytime.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="assets/js/bovic-cms.js"></script>
+<script src="assets/js/book-portal.js"></script>
+</body>
+</html>

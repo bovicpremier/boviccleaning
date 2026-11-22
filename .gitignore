@@ -1,0 +1,24 @@
+# Secrets & Environment
+.env
+*.env
+!.env.example
+
+# Database, generated JWT secret & initial one-time credentials
+backend/data/*
+!backend/data/default-logos/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+.jwt-secret
+INITIAL_CREDENTIALS.txt
+
+# Dependencies & Logs
+node_modules/
+npm-debug.log*
+*.log
+
+# OS / Editor
+.DS_Store
+Thumbs.db

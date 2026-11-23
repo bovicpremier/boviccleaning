@@ -925,7 +925,11 @@
           document.title = document.title.replace(/Bovic Premier Cleaning Pros LLC/g, seo.site_title_suffix);
         }
 
-        if (seo.meta_description) {
+        // The Admin SEO description is the site-wide default: use it on the homepage, and on any
+        // page that has no description of its own. Pages with their own description keep it.
+        const ownDesc = (document.head.querySelector('meta[name="description"]') || {}).content || '';
+        const hasOwnDesc = ownDesc.trim().length > 0 && !/^Bovic Premier Cleaning Pros LLC — Home & Office Cleaning in North Atlanta, GA\s*$/.test(ownDesc);
+        if (seo.meta_description && (isHome || !hasOwnDesc)) {
           setMeta('name', 'description', seo.meta_description);
           setMeta('property', 'og:description', seo.meta_description);
           setMeta('name', 'twitter:description', seo.meta_description);

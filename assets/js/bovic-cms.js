@@ -543,11 +543,19 @@
           const sub = firstSlide.querySelector('.main-slider__sub-title');
           const txt = firstSlide.querySelector('.main-slider__text');
           const btn = firstSlide.querySelector('.main-slider__btn-box .thm-btn');
-          if (sub && s.hero.eyebrow) sub.textContent = s.hero.eyebrow;
-          if (txt && s.hero.subtitle) txt.textContent = s.hero.subtitle;
+          // Text saved through a mis-encoded form can arrive as "Â·" / "â€”"; show the intended characters
+          const fixText = (v) => {
+            const str = String(v);
+            if (!/[ÂÃâ]/.test(str)) return str;
+            try { return decodeURIComponent(escape(str)); } catch { return str.replace(/Â(?=[ -¿])/g, ''); }
+          };
+          if (sub && s.hero.eyebrow) sub.textContent = fixText(s.hero.eyebrow);
+          if (txt && s.hero.subtitle) txt.textContent = fixText(s.hero.subtitle);
           if (btn && s.hero.cta_text && btn.firstChild && btn.firstChild.nodeType === 3) {
-            btn.firstChild.nodeValue = s.hero.cta_text + ' ';
+            btn.firstChild.nodeValue = fixText(s.hero.cta_text) + ' ';
           }
+          // The hero button is the main call to action: it always opens the booking page
+          if (btn) btn.setAttribute('href', 'book.html');
         }
       }
       if (s.about) {

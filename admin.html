@@ -43,7 +43,12 @@
     @media (max-width: 991px) {
       .app-shell { display: block; }
       .mobile-topbar { display: flex; }
-      .sidebar { position: fixed; left: 0; top: 0; bottom: 0; z-index: 1050; transform: translateX(-100%); transition: transform .22s ease; }
+      /* height:auto + top/bottom = the real visible screen, so Logout isn't hidden under the phone's browser bar */
+      .sidebar { position: fixed; left: 0; top: 0; bottom: 0; height: auto; max-height: 100dvh; padding-bottom: calc(22px + env(safe-area-inset-bottom)); z-index: 1050; transform: translateX(-100%); transition: transform .22s ease; }
+      .mobile-topbar { gap: 8px; }
+      .mobile-topbar .btn { white-space: nowrap; flex-shrink: 0; }
+      .mobile-topbar .mt-right { display: flex; align-items: center; gap: 8px; }
+      #mobile-logout-btn { color: #ffb3b3; border-color: rgba(255,179,179,.6); }
       .sidebar.open { transform: translateX(0); }
       .sidebar-backdrop.open { display: block; }
       .main-area { padding: 16px; }
@@ -173,7 +178,10 @@
   <div class="mobile-topbar">
     <button type="button" class="btn btn-sm btn-outline-light" id="mobile-menu-btn"><i class="fas fa-bars me-1"></i>Menu</button>
     <span class="fw-bold small" style="color:var(--gold);">Bovic Premier Portal</span>
-    <span id="mobile-role-txt" class="badge-role"></span>
+    <span class="mt-right">
+      <span id="mobile-role-txt" class="badge-role"></span>
+      <button type="button" class="btn btn-sm btn-outline-light" id="mobile-logout-btn" aria-label="Logout"><i class="fas fa-sign-out-alt"></i></button>
+    </span>
   </div>
   <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
@@ -917,6 +925,6 @@
 <div class="toast-box" id="toast"></div>
 
 <script src="assets/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/admin-portal.js?v=3"></script>
+<script src="assets/js/admin-portal.js?v=4"></script>
 </body>
 </html>

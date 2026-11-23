@@ -174,10 +174,14 @@
     showLoginView();
   });
 
-  document.getElementById('logout-btn').addEventListener('click', async () => {
+  const doLogout = async () => {
     try { await api('/api/auth/logout', { method: 'POST' }); } catch {}
     location.reload();
-  });
+  };
+  document.getElementById('logout-btn').addEventListener('click', doLogout);
+  // Phones: always-visible logout in the top bar (the sidebar one can sit below the browser toolbar)
+  const mobileLogout = document.getElementById('mobile-logout-btn');
+  if (mobileLogout) mobileLogout.addEventListener('click', doLogout);
 
   function switchTab(tab) {
     document.querySelectorAll('.sidebar .nav-btn[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));

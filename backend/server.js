@@ -776,10 +776,11 @@ app.use(express.urlencoded({ extended: false, limit: '50kb' }));
 // Keep in sync with DEMO_PAGE_RE in assets/js/bovic-cms.js
 const DEMO_PAGE_RE = /^(index\d.*|index-.*|.*one-page.*|profile-.*|my-profile.*|cart|checkout|wishlist|products?|product-details|coming-soon|login|sign-up|nullphpscript\.com)\.html$/i;
 const NOINDEX_PAGES = ['admin.html', '404.html'];
-// Theme pages with placeholder people (stock team members, sample reviews). They're hidden
-// until real content exists: left out of the sitemap and sent to the About page.
+// Theme pages with placeholder content (stock team members, sample reviews, a made-up
+// award timeline, an electrician demo project). They're hidden until real content exists:
+// left out of the sitemap and sent to the About page.
 // To bring one back, put real content in it and remove it from this list.
-const HIDDEN_PAGES = ['team.html', 'team-details.html', 'testimonials.html'];
+const HIDDEN_PAGES = ['team.html', 'team-details.html', 'testimonials.html', 'history.html', 'project-details.html'];
 
 // Dynamic SEO robots.txt & sitemap.xml (before static file blocker)
 app.get('/robots.txt', (req, res) => {

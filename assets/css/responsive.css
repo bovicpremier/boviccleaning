@@ -2205,6 +2205,7 @@
         display: none;
     }
 
+    .page-header__inner h1,
     .page-header__inner h3 {
         font-size: 30px;
     }

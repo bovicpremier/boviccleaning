@@ -348,8 +348,8 @@
     }
     return {
       site: {
-        company_name: 'Bovic Premier Cleaning Pros LLC',
-        tagline: 'Premier Home & Office Cleaning in North Atlanta',
+        company_name: 'Bovic Premier Cleaning & Painting Solutions LLC',
+        tagline: 'Premier Cleaning & Painting in North Atlanta',
         phone: '678-799-4634',
         booking_email: 'booking@boviccleaning.com',
         info_email: 'info@boviccleaning.com',
@@ -930,13 +930,13 @@
         if (isHome && seo.default_title) {
           document.title = seo.default_title;
         } else if (seo.site_title_suffix && document.title.includes('Bovic Premier')) {
-          document.title = document.title.replace(/Bovic Premier Cleaning Pros LLC/g, seo.site_title_suffix);
+          document.title = document.title.replace(/Bovic Premier Cleaning(?: & Painting)? (?:Pros|Solutions) LLC/g, seo.site_title_suffix);
         }
 
         // The Admin SEO description is the site-wide default: use it on the homepage, and on any
         // page that has no description of its own. Pages with their own description keep it.
         const ownDesc = (document.head.querySelector('meta[name="description"]') || {}).content || '';
-        const hasOwnDesc = ownDesc.trim().length > 0 && !/^Bovic Premier Cleaning Pros LLC — Home & Office Cleaning in North Atlanta, GA\s*$/.test(ownDesc);
+        const hasOwnDesc = ownDesc.trim().length > 0 && !/^Bovic Premier Cleaning(?: & Painting)? (?:Pros|Solutions) LLC — /i.test(ownDesc);
         if (seo.meta_description && (isHome || !hasOwnDesc)) {
           setMeta('name', 'description', seo.meta_description);
           setMeta('property', 'og:description', seo.meta_description);
@@ -972,13 +972,13 @@
           setMeta('name', 'google-site-verification', mkt.search_console_token);
         }
 
-        // Structured Data (CleaningService / LocalBusiness JSON-LD)
+        // Structured Data (CleaningService + HousePainter LocalBusiness JSON-LD)
         const baseForSchema = (seo.canonical_base || location.origin).replace(/\/+$/, '');
         const sameAs = Object.values(s.social || {}).filter(u => /^https?:\/\//i.test(u));
         const schema = {
           '@context': 'https://schema.org',
-          '@type': 'CleaningService',
-          name: s.company_name || 'Bovic Premier Cleaning Pros LLC',
+          '@type': ['HomeAndConstructionBusiness', 'CleaningService', 'HousePainter'],
+          name: s.company_name || 'Bovic Premier Cleaning & Painting Solutions LLC',
           url: baseForSchema,
           telephone: s.phone || '678-799-4634',
           email: s.booking_email || 'booking@boviccleaning.com',

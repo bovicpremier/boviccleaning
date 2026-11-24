@@ -2,7 +2,7 @@
   "name": "bovic-premier-cleaning-pros-llc",
   "version": "1.0.0",
   "private": true,
-  "description": "Bovic Premier Cleaning Pros LLC — Website, Online Booking Calendar, Stripe/PayPal Checkout, Automated Emails & Admin Portal",
+  "description": "Bovic Premier Cleaning & Painting Solutions LLC — Website, Online Booking, Painting Estimates, Stripe/PayPal Checkout, Automated Emails & Admin Portal",
   "engines": {
     "node": ">=22.5.0"
   },

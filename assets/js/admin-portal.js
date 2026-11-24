@@ -1076,7 +1076,7 @@
   }
 
   function updateSerpPreview() {
-    const t = document.getElementById('seo-default-title').value || 'Bovic Premier Cleaning Pros LLC';
+    const t = document.getElementById('seo-default-title').value || 'Bovic Premier Cleaning & Painting Solutions LLC';
     const d = document.getElementById('seo-meta-desc').value || '';
     const u = document.getElementById('seo-canonical').value || 'https://boviccleaning.com';
     document.getElementById('seo-serp-title').textContent = t.slice(0, 65);

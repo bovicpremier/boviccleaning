@@ -61,6 +61,18 @@ const BASE_SERVICES = {
     sizes: HOME_SIZES,
     prices: { onetime: { cozy: null, family: null, estate: null } },
   },
+  painting: {
+    label: 'Interior & Exterior Painting',
+    short: 'Painting',
+    desc: 'Free estimate',
+    quoteOnly: true,
+    sizes: {
+      cozy: '1–2 rooms / trim & doors',
+      family: 'Whole interior / main floor',
+      estate: 'Exterior / full property',
+    },
+    prices: { onetime: { cozy: null, family: null, estate: null } },
+  },
 };
 
 const FREQ_LABELS = {

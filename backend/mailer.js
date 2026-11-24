@@ -77,7 +77,7 @@ function wrapHtml(title, bodyHtml) {
   return `
   <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:600px;margin:0 auto;border:1px solid #ded8cf;border-radius:14px;overflow:hidden;color:${BRAND_DARK};">
     <div style="background:${BRAND_DARK};padding:22px 28px;">
-      <h2 style="margin:0;font-size:21px;color:${BRAND_GOLD};">Bovic Premier Cleaning Pros LLC</h2>
+      <h2 style="margin:0;font-size:21px;color:${BRAND_GOLD};">Bovic Premier Cleaning &amp; Painting Solutions LLC</h2>
       <p style="margin:4px 0 0;font-size:13px;color:#cfe3dd;">Buckhead · Sandy Springs · Roswell · Alpharetta · 678-799-4634</p>
     </div>
     <div style="padding:28px;background:#ffffff;">
@@ -108,7 +108,7 @@ function button(url, label) {
 
 async function sendEmail({ bookingId = null, to, emailType, subject, html, textPreview, headers }) {
   const provider = emailProvider();
-  const fromName = process.env.FROM_NAME || 'Bovic Premier Cleaning Pros LLC';
+  const fromName = process.env.FROM_NAME || 'Bovic Premier Cleaning & Painting Solutions LLC';
   const fromEmail = process.env.FROM_EMAIL || 'booking@boviccleaning.com';
   const from = `"${fromName.replace(/"/g, '')}" <${fromEmail}>`;
   const replyTo = process.env.REPLY_TO_EMAIL || '';
@@ -145,7 +145,7 @@ async function sendBookingConfirmation(b) {
     subject: `Booking Confirmed (${b.booking_code}) — ${b.cleaning_date} at ${b.time_slot}`,
     html: wrapHtml('Your cleaning is confirmed!', `
       <p>Hi <strong>${esc(b.customer_name)}</strong>,</p>
-      <p>Thank you for booking with Bovic Premier Cleaning Pros LLC. Your payment is confirmed and your cleaning is on the calendar.</p>
+      <p>Thank you for booking with Bovic Premier Cleaning &amp; Painting Solutions LLC. Your payment is confirmed and your appointment is on the calendar.</p>
       ${detailsTable(b)}
       <p>We'll email you a reminder 24 hours and 2 hours before your appointment.</p>`),
     textPreview: `Booking ${b.booking_code} confirmed for ${b.cleaning_date} ${b.time_slot}.`,
@@ -241,7 +241,7 @@ async function sendCustomerMessage(b, body, senderName) {
     html: wrapHtml('A message from your Bovic Premier team', `
       <p>Hi <strong>${esc(b.customer_name)}</strong>,</p>
       <div style="background:${BRAND_CREAM};border-left:4px solid ${BRAND_GOLD};padding:14px 16px;border-radius:6px;margin:14px 0;">${nl2br(body)}</div>
-      <p style="color:#595752;font-size:13px;">— ${esc(senderName)}, Bovic Premier Cleaning Pros LLC</p>
+      <p style="color:#595752;font-size:13px;">— ${esc(senderName)}, Bovic Premier Cleaning &amp; Painting Solutions LLC</p>
       <p style="font-size:13px;">Booking ${esc(b.booking_code)} · ${esc(b.cleaning_date)} at ${esc(b.time_slot)}</p>`),
     textPreview: body,
   });

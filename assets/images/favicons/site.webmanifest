@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Bovic Premier Cleaning Pros",
-  "short_name": "Bovic Cleaning",
-  "description": "Book home & office cleaning in North Atlanta in under a minute.",
+  "name": "Bovic Premier Cleaning & Painting Solutions",
+  "short_name": "Bovic Premier",
+  "description": "Book home & office cleaning or a free painting estimate in North Atlanta.",
   "start_url": "/index.html?source=app",
   "scope": "/",
   "display": "standalone",

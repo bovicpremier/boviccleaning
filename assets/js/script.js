@@ -1196,7 +1196,7 @@
           success: function (response) {
             if (response && (response.success === true || response.success === "true")) {
               $result.text(isNewsletter
-                ? "Thank you for subscribing to Bovic Premier Cleaning Pros updates!"
+                ? "Thank you for subscribing to Bovic Premier Cleaning & Painting Solutions updates!"
                 : "Thank you! We received your message and will get back to you shortly.").addClass("success");
               $form.find('input[type="text"], input[type="email"], input[type="tel"], textarea').val("");
             } else {

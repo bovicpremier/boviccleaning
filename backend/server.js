@@ -343,32 +343,32 @@ app.use((req, res, next) => {
 // SETTINGS (PAYMENT LINKS)
 // ============================================================
 const DEFAULT_SITE = {
-  company_name: 'Bovic Premier Cleaning Pros LLC',
-  tagline: 'Premier Home & Office Cleaning in North Atlanta',
+  company_name: 'Bovic Premier Cleaning & Painting Solutions LLC',
+  tagline: 'Premier Cleaning & Painting in North Atlanta',
   phone: '678-799-4634',
   booking_email: 'booking@boviccleaning.com',
   info_email: 'info@boviccleaning.com',
   service_areas: 'Buckhead, Sandy Springs, Roswell & Alpharetta, GA',
   hours: 'Mon - Sat : 8am to 6pm',
-  copyright_text: '© 2026 Bovic Premier Cleaning Pros LLC. All Rights Reserved.',
-  footer_about: 'Bovic Premier Cleaning Pros LLC provides reliable home, deep, move-in/move-out, Airbnb turnover, and office cleaning across Buckhead, Sandy Springs, Roswell, and Alpharetta, GA.',
+  copyright_text: '© 2026 Bovic Premier Cleaning & Painting Solutions LLC. All Rights Reserved.',
+  footer_about: 'Bovic Premier Cleaning & Painting Solutions LLC provides insured home, deep, move-in/move-out, Airbnb & office cleaning plus interior & exterior painting across Buckhead, Sandy Springs, Roswell, and Alpharetta, GA.',
   social: { facebook: '', instagram: '', twitter: '', linkedin: '', pinterest: '', tiktok: '', youtube: '', google_business: '' },
   hero: {
-    eyebrow: 'Home & Office Cleaning · Buckhead to Alpharetta',
+    eyebrow: 'Cleaning & Painting · Buckhead to Alpharetta',
     title_1: 'Spotless Homes.',
-    title_highlight: 'Zero Stress.',
-    subtitle: 'Bovic Premier Cleaning Pros LLC handles the scrubbing, dusting, and degreasing so you can get your evenings and weekends back.',
+    title_highlight: 'Crisp Finishes.',
+    subtitle: 'Bovic Premier Cleaning & Painting Solutions LLC delivers detailed home & office cleaning and crisp interior & exterior painting across North Atlanta.',
     cta_text: 'Book Online Now',
   },
   about: {
     tagline: 'About Us',
     title: 'Focused by Care, Crafted for Perfection',
-    text: 'At Bovic Premier Cleaning Pros LLC we believe a clean space is the first step to a clear mind. From tough stains to everyday dust, our trained North Atlanta team combines efficiency, safety, and eco-friendliness so you enjoy a fresh, healthy environment.',
+    text: 'At Bovic Premier Cleaning & Painting Solutions LLC we care for North Atlanta homes and workplaces inside and out. From deep cleaning and recurring upkeep to crisp interior and exterior painting, our insured team combines careful prep, safe products, and dependable results.',
     experience_years: '4',
     active_staff: '25',
   },
   policies: {
-    privacy_intro: 'Bovic Premier Cleaning Pros LLC respects your privacy. This Privacy Policy explains what information we collect when you request an estimate, book a cleaning online, or communicate with our North Atlanta team.',
+    privacy_intro: 'Bovic Premier Cleaning & Painting Solutions LLC respects your privacy. This Privacy Policy explains what information we collect when you request a cleaning or painting estimate, book online, or communicate with our North Atlanta team.',
     privacy_collection: 'We collect only the information needed to schedule and deliver your cleaning: your name, phone number, email address, property street address, service area, entry/gate instructions, and booking preferences. Card payments are processed securely by Stripe or PayPal — we never store raw credit card numbers on our servers.',
     privacy_photos: 'Our cleaners may take brief before-and-after photos strictly for quality assurance, before/after verification reports, and documenting pre-existing wear or damage. Photos are stored privately for operational review and are never posted publicly or on social media without your explicit permission.',
     privacy_security: 'Access to client booking details and entry codes is restricted to authorized Bovic Premier administrators and the cleaner assigned to your appointment. You may request an export, correction, or deletion of your contact records anytime by emailing info@boviccleaning.com or calling 678-799-4634.',
@@ -408,10 +408,10 @@ const DEFAULT_SITE = {
     },
   },
   seo: {
-    default_title: 'Bovic Premier Cleaning Pros LLC | Home & Office Cleaning in North Atlanta',
-    site_title_suffix: 'Bovic Premier Cleaning Pros LLC',
-    meta_description: 'Premier residential, deep cleaning, move-in/move-out, Airbnb turnover, and office cleaning across Buckhead, Sandy Springs, Roswell & Alpharetta, GA.',
-    meta_keywords: 'house cleaning Atlanta, Buckhead maid service, Sandy Springs deep cleaning, Roswell move out cleaning, Alpharetta commercial cleaning',
+    default_title: 'Bovic Premier Cleaning & Painting Solutions LLC | Cleaning & House Painters in North Atlanta',
+    site_title_suffix: 'Bovic Premier Cleaning & Painting Solutions LLC',
+    meta_description: 'Bovic Premier Cleaning & Painting Solutions LLC provides insured home & office cleaning, deep cleans, move-in/move-out cleaning, and interior & exterior painting across Buckhead, Sandy Springs, Roswell & Alpharetta, GA.',
+    meta_keywords: 'house painters Alpharetta, interior painting Sandy Springs, exterior painting Roswell, painters Buckhead Atlanta, residential painting North Atlanta, house cleaning Atlanta, Buckhead maid service, Sandy Springs deep cleaning, Roswell move out cleaning, Alpharetta commercial cleaning',
     canonical_base: 'https://boviccleaning.com',
     og_image: 'assets/images/backgrounds/slider-1-1.jpg',
     robots_index: true,
@@ -1392,7 +1392,7 @@ app.post('/api/contact', async (req, res) => {
   });
 
   res.send(isNewsletter
-    ? 'Thank you for subscribing to Bovic Premier Cleaning Pros LLC updates!'
+    ? 'Thank you for subscribing to Bovic Premier Cleaning & Painting Solutions LLC updates!'
     : 'Thank you! We received your message and will get back to you shortly.');
 });
 

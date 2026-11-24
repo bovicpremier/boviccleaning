@@ -1,7 +1,7 @@
 {
   "name": "bovic-premier-cleaning-backend",
   "version": "1.0.0",
-  "description": "Booking Calendar, Stripe Checkout, Automated Reminders & Super Admin Backend for Bovic Premier Cleaning Pros LLC",
+  "description": "Booking Calendar, Painting Estimates, Stripe Checkout, Automated Reminders & Super Admin Backend for Bovic Premier Cleaning & Painting Solutions LLC",
   "main": "server.js",
   "engines": {
     "node": ">=22.5.0"

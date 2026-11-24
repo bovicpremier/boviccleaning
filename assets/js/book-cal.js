@@ -21,6 +21,11 @@
       desc: 'Fast reset between guests: fresh linens, bathrooms and kitchen cleaned, trash out, basics restocked, plus a photo report. Add your check-out and check-in times in the notes.',
       prices: [['1–2 bed', '$95'], ['3 bed / 2 bath', '$140'], ['Larger homes', 'Quoted']]
     },
+    painting: {
+      slug: 'free-estimate', name: 'Painting (Interior & Exterior)', from: 'Free estimate', note: '15-min walkthrough / call',
+      desc: 'Interior and exterior painting priced per job across Buckhead, Sandy Springs, Roswell, and Alpharetta — walls, ceilings, trim, doors, accent rooms, siding, shutters, and porches. Book a free 15-minute video walkthrough (or note your address for an on-site visit) and get a written estimate the same day.',
+      prices: null
+    },
     office: {
       slug: 'free-estimate', name: 'Office, Commercial & Other', from: 'Free estimate', note: '15-min video call',
       desc: 'A free 15-minute video call to quote office, commercial, post-construction, window or floor cleaning, or any job you\'re not sure how to book. Show us the space on your phone and we\'ll send a written quote the same day.',
@@ -29,6 +34,7 @@
   };
   var ALIASES = {
     'standard-cleaning': 'standard', 'deep-cleaning': 'deep', 'move-in-move-out': 'move', 'airbnb-turnover': 'airbnb',
+    'interior-painting': 'painting', 'exterior-painting': 'painting', paint: 'painting',
     'free-estimate': 'office', commercial: 'office', post_construction: 'office', estimate: 'office'
   };
 

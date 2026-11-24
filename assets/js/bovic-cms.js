@@ -253,7 +253,7 @@
       el.id = 'bovic-app-banner';
       el.setAttribute('role', 'dialog');
       el.setAttribute('aria-label', 'Install the Bovic app');
-      el.innerHTML = `<img src="/assets/images/favicons/apple-touch-icon.png" alt="">
+      el.innerHTML = `<img src="/assets/images/favicons/apple-touch-icon.png?v=2" alt="">
         <div class="t"><strong>Get the Bovic app</strong>Book in seconds from your home screen. Free, no app store.
           <div class="ios">${iosSteps()}</div></div>
         <button type="button" class="go">Install</button>

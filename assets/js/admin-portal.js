@@ -964,10 +964,8 @@
     SITE_CACHE = s;
 
     const lv = s.logo_version || Date.now();
-    ['logo-1', 'logo-2', 'logo-3'].forEach(v => {
-      const img = document.getElementById('prev-' + v);
-      if (img) img.src = `assets/images/resources/${v}.png?v=${lv}`;
-    });
+    const mainLogoPrev = document.getElementById('prev-main');
+    if (mainLogoPrev) mainLogoPrev.src = `assets/images/resources/bovic-logo-2.png?v=${lv}`;
 
     document.getElementById('cms-company').value = s.company_name || '';
     document.getElementById('cms-tagline').value = s.tagline || '';
@@ -1107,7 +1105,7 @@
           });
           document.getElementById('prev-' + inp.dataset.variant).src = res.src;
           inp.value = '';
-          toast(`${inp.dataset.variant} updated across website!`);
+          toast('Logo updated on every page!');
         } catch (ex) { alert(ex.message); }
       };
       reader.readAsDataURL(file);
@@ -1122,7 +1120,7 @@
           body: JSON.stringify({ variant: btn.dataset.variant }),
         });
         document.getElementById('prev-' + btn.dataset.variant).src = res.src;
-        toast(`${btn.dataset.variant} restored to default`);
+        toast('Original logo restored');
       } catch (ex) { alert(ex.message); }
     });
   });

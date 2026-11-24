@@ -884,14 +884,16 @@ app.get('/api/health', (req, res) => {
 });
 
 app.get('/assets/images/resources/:file', (req, res, next) => {
-  const m = String(req.params.file || '').match(/^(logo-[123])\.png$/);
+  // bovic-logo-2.png is the one site-wide logo; an admin upload (variant "main") replaces it everywhere.
+  const m = String(req.params.file || '').match(/^(bovic-logo-2|logo-[123])\.png$/);
   if (!m) return next();
-  const dbLogo = getSetting('logo_' + m[1], null);
+  const variant = m[1] === 'bovic-logo-2' ? 'main' : m[1];
+  const dbLogo = getSetting('logo_' + variant, null);
   if (dbLogo && dbLogo.data) {
     res.type('png').send(Buffer.from(dbLogo.data, 'base64'));
     return;
   }
-  const customFile = path.join(CUSTOM_LOGOS_DIR, `${m[1]}.png`);
+  const customFile = path.join(CUSTOM_LOGOS_DIR, `${variant}.png`);
   if (fs.existsSync(customFile)) return res.sendFile(customFile);
   next();
 });
@@ -2151,11 +2153,12 @@ function detectImageType(buf) {
 const CUSTOM_LOGOS_DIR = path.join(db.DATA_DIR, 'logos');
 if (!fs.existsSync(CUSTOM_LOGOS_DIR)) fs.mkdirSync(CUSTOM_LOGOS_DIR, { recursive: true });
 
+// One logo for the whole site: the upload is stored in the DB (survives redeploys) and served
+// in place of assets/images/resources/bovic-logo-2.png on every page. Reset falls back to that file.
+const MAIN_LOGO_SRC = 'assets/images/resources/bovic-logo-2.png';
+
 app.post('/api/admin/site/logo', authRequired(STAFF_ROLES), async (req, res) => {
-  const { variant, dataUrl } = req.body || {};
-  if (!['logo-1', 'logo-2', 'logo-3'].includes(variant)) {
-    return res.status(400).json({ error: 'Choose logo-1, logo-2, or logo-3' });
-  }
+  const { dataUrl } = req.body || {};
   const m = String(dataUrl || '').match(/^data:image\/png;base64,([A-Za-z0-9+/=]+)$/);
   if (!m) return res.status(400).json({ error: 'Please upload a PNG image (logos need PNG for transparency)' });
 
@@ -2163,36 +2166,26 @@ app.post('/api/admin/site/logo', authRequired(STAFF_ROLES), async (req, res) => 
   if (buf.length > 2 * 1024 * 1024) return res.status(400).json({ error: 'Logo file must be under 2 MB' });
   if (detectImageType(buf) !== 'png') return res.status(400).json({ error: 'That file is not a valid PNG image (SVG is blocked for security)' });
 
-  await setSetting('logo_' + variant, { data: m[1] });
-  try { fs.writeFileSync(path.join(CUSTOM_LOGOS_DIR, `${variant}.png`), buf); } catch {}
-  const dest = path.resolve(__dirname, '..', 'assets', 'images', 'resources', `${variant}.png`);
-  try { fs.writeFileSync(dest, buf); } catch {}
+  await setSetting('logo_main', { data: m[1] });
+  try { fs.writeFileSync(path.join(CUSTOM_LOGOS_DIR, 'main.png'), buf); } catch {}
 
   const cur = getSite();
   cur.logo_version = Date.now();
   await setSetting('site', cur);
-  auditLog(req, req.user, 'logo_uploaded', variant, `${buf.length} bytes`);
-  res.json({ success: true, logo_version: cur.logo_version, src: `assets/images/resources/${variant}.png?v=${cur.logo_version}` });
+  auditLog(req, req.user, 'logo_uploaded', 'main', `${buf.length} bytes`);
+  res.json({ success: true, logo_version: cur.logo_version, src: `${MAIN_LOGO_SRC}?v=${cur.logo_version}` });
 });
 
 app.post('/api/admin/site/logo/reset', authRequired(STAFF_ROLES), async (req, res) => {
-  const { variant } = req.body || {};
-  if (!['logo-1', 'logo-2', 'logo-3'].includes(variant)) {
-    return res.status(400).json({ error: 'Invalid logo variant' });
-  }
-  await deleteSetting('logo_' + variant);
-  const customFile = path.join(CUSTOM_LOGOS_DIR, `${variant}.png`);
+  await deleteSetting('logo_main');
+  const customFile = path.join(CUSTOM_LOGOS_DIR, 'main.png');
   try { if (fs.existsSync(customFile)) fs.unlinkSync(customFile); } catch {}
-  const src = path.join(__dirname, 'data', 'default-logos', `${variant}.png`);
-  const dest = path.resolve(__dirname, '..', 'assets', 'images', 'resources', `${variant}.png`);
-  if (!fs.existsSync(src)) return res.status(404).json({ error: 'Default logo backup not found' });
-  try { fs.copyFileSync(src, dest); } catch {}
 
   const cur = getSite();
   cur.logo_version = Date.now();
   await setSetting('site', cur);
-  auditLog(req, req.user, 'logo_reset', variant);
-  res.json({ success: true, logo_version: cur.logo_version, src: `assets/images/resources/${variant}.png?v=${cur.logo_version}` });
+  auditLog(req, req.user, 'logo_reset', 'main');
+  res.json({ success: true, logo_version: cur.logo_version, src: `${MAIN_LOGO_SRC}?v=${cur.logo_version}` });
 });
 
 // ============================================================
